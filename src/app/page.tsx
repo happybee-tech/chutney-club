@@ -175,12 +175,12 @@ export default function Home() {
 
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
-                href="/daily-salads"
+                href="/menu"
                 className="rounded-xl bg-[#5B821F] px-7 py-3 text-sm font-bold text-white shadow-[0_10px_25px_rgba(91,130,31,0.35)] transition hover:translate-y-[-2px]"
               >
                 View All Salads
               </Link>
-              <a href="#value-proposition" className="rounded-xl border border-white/45 bg-white/15 px-7 py-3 text-sm font-semibold text-white">
+              <a href="#chutney-club-difference" className="rounded-xl border border-white/45 bg-white/15 px-7 py-3 text-sm font-semibold text-white">
                 See The Difference
               </a>
             </div>
@@ -246,7 +246,7 @@ export default function Home() {
         </div>
       </section> */}
 
-      <section className="px-4 pb-20 sm:px-6 lg:px-8">
+      <section id="chutney-club-difference" className="px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#8B836F]">Our Core Offerings</p>
