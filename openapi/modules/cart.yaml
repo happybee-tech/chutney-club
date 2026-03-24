@@ -1,0 +1,92 @@
+paths:
+  /cart:
+    post:
+      tags: [Cart]
+      summary: Create cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components.yaml#/schemas/CartCreateRequest'
+      responses:
+        '200':
+          description: Cart created
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/CartResponse'
+
+  /cart/items:
+    post:
+      tags: [Cart]
+      summary: Add cart item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components.yaml#/schemas/CartItemCreateRequest'
+      responses:
+        '200':
+          description: Cart item added
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/CartItemResponse'
+
+  /cart/items/{id}:
+    patch:
+      tags: [Cart]
+      summary: Update cart item
+      parameters:
+        - $ref: '../components.yaml#/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components.yaml#/schemas/CartItemUpdateRequest'
+      responses:
+        '200':
+          description: Cart item updated
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/CartItemResponse'
+    delete:
+      tags: [Cart]
+      summary: Remove cart item
+      parameters:
+        - $ref: '../components.yaml#/parameters/IdPath'
+      responses:
+        '200':
+          description: Cart item removed
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/EmptyOk'
+
+  /cart/validate:
+    post:
+      tags: [Cart]
+      summary: Validate cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components.yaml#/schemas/CartValidateRequest'
+      responses:
+        '200':
+          description: Cart validation
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/CartValidateResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/ErrorResponse'

@@ -1,0 +1,26 @@
+paths:
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/OrderListResponse'
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order
+      parameters:
+        - $ref: '../components.yaml#/parameters/IdPath'
+      responses:
+        '200':
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/OrderResponse'

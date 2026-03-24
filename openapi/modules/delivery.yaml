@@ -1,0 +1,19 @@
+paths:
+  /delivery-slots:
+    get:
+      tags: [Delivery]
+      summary: List delivery slots
+      parameters:
+        - in: query
+          name: category
+          schema: { $ref: '../components.yaml#/schemas/SlotCategory' }
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Delivery slots
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/DeliverySlotListResponse'

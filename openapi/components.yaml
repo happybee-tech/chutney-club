@@ -1,0 +1,406 @@
+securitySchemes:
+  bearerAuth:
+    type: http
+    scheme: bearer
+    bearerFormat: JWT
+
+parameters:
+  IdPath:
+    in: path
+    name: id
+    required: true
+    schema:
+      type: string
+      format: uuid
+
+schemas:
+  EmptyOk:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data: { type: object }
+    required: [success, data]
+
+  ErrorResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: false }
+      error:
+        type: object
+        properties:
+          code: { type: string }
+          message: { type: string }
+          details: { type: object }
+        required: [code, message]
+    required: [success, error]
+
+  IdResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          id: { type: string, format: uuid }
+        required: [id]
+    required: [success, data]
+
+  OtpRequest:
+    type: object
+    properties:
+      phone: { type: string }
+      email: { type: string, format: email }
+    oneOf:
+      - required: [phone]
+      - required: [email]
+
+  OtpRequestResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          request_id: { type: string, format: uuid }
+          expires_in: { type: integer, example: 300 }
+        required: [request_id, expires_in]
+    required: [success, data]
+
+  OtpVerifyRequest:
+    type: object
+    required: [request_id, otp]
+    properties:
+      request_id: { type: string, format: uuid }
+      otp: { type: string, example: "123456" }
+
+  RefreshRequest:
+    type: object
+    required: [refresh_token]
+    properties:
+      refresh_token: { type: string }
+
+  AuthTokensResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          access_token: { type: string }
+          refresh_token: { type: string }
+          expires_in: { type: integer, example: 900 }
+          user:
+            $ref: '#/schemas/User'
+        required: [access_token, refresh_token, expires_in, user]
+    required: [success, data]
+
+  User:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      phone: { type: string }
+      email: { type: string, format: email, nullable: true }
+      name: { type: string, nullable: true }
+    required: [id, phone]
+
+  UserResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data: { $ref: '#/schemas/User' }
+    required: [success, data]
+
+  UserUpdateRequest:
+    type: object
+    properties:
+      name: { type: string }
+      email: { type: string, format: email }
+
+  Brand:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      name: { type: string }
+      description: { type: string, nullable: true }
+      min_bulk_qty: { type: integer }
+      min_bulk_value: { type: number, format: float }
+    required: [id, name]
+
+  BrandListResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: array
+        items: { $ref: '#/schemas/Brand' }
+    required: [success, data]
+
+  BrandResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data: { $ref: '#/schemas/Brand' }
+    required: [success, data]
+
+  ProductCategory:
+    type: string
+    enum: [perishable, non_perishable]
+
+  ProductVariant:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      name: { type: string }
+      price: { type: number, format: float }
+      sku: { type: string }
+    required: [id, name, price]
+
+  Product:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      brand_id: { type: string, format: uuid }
+      name: { type: string }
+      description: { type: string, nullable: true }
+      category: { $ref: '#/schemas/ProductCategory' }
+      variants:
+        type: array
+        items: { $ref: '#/schemas/ProductVariant' }
+      images:
+        type: array
+        items: { type: string }
+    required: [id, brand_id, name, category]
+
+  ProductListResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          items:
+            type: array
+            items: { $ref: '#/schemas/Product' }
+          page: { type: integer }
+          limit: { type: integer }
+          total: { type: integer }
+        required: [items, page, limit, total]
+    required: [success, data]
+
+  ProductResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data: { $ref: '#/schemas/Product' }
+    required: [success, data]
+
+  CartCreateRequest:
+    type: object
+    required: [order_type]
+    properties:
+      order_type:
+        type: string
+        enum: [single, bulk]
+      brand_id:
+        type: string
+        format: uuid
+
+  CartResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          id: { type: string, format: uuid }
+          order_type: { type: string }
+          brand_id: { type: string, format: uuid, nullable: true }
+        required: [id, order_type]
+    required: [success, data]
+
+  CartItemCreateRequest:
+    type: object
+    required: [cart_id, variant_id, qty]
+    properties:
+      cart_id: { type: string, format: uuid }
+      variant_id: { type: string, format: uuid }
+      qty: { type: integer, minimum: 1 }
+
+  CartItemUpdateRequest:
+    type: object
+    required: [qty]
+    properties:
+      qty: { type: integer, minimum: 1 }
+
+  CartItemResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          id: { type: string, format: uuid }
+          variant_id: { type: string, format: uuid }
+          qty: { type: integer }
+        required: [id, variant_id, qty]
+    required: [success, data]
+
+  CartValidateRequest:
+    type: object
+    required: [cart_id, delivery_slot_id]
+    properties:
+      cart_id: { type: string, format: uuid }
+      delivery_slot_id: { type: string, format: uuid }
+
+  CartValidateResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          valid: { type: boolean }
+          messages:
+            type: array
+            items: { type: string }
+          summary:
+            type: object
+            properties:
+              subtotal: { type: number, format: float }
+              total: { type: number, format: float }
+        required: [valid]
+    required: [success, data]
+
+  SlotCategory:
+    type: string
+    enum: [perishable, non_perishable, both]
+
+  DeliverySlot:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      slot_date: { type: string, format: date }
+      start_time: { type: string }
+      end_time: { type: string }
+      category: { $ref: '#/schemas/SlotCategory' }
+      cutoff_time: { type: string, format: date-time }
+      capacity: { type: integer }
+    required: [id, slot_date, start_time, end_time, category, cutoff_time, capacity]
+
+  DeliverySlotListResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: array
+        items: { $ref: '#/schemas/DeliverySlot' }
+    required: [success, data]
+
+  CheckoutRequest:
+    type: object
+    required: [cart_id, address_id, delivery_slot_id]
+    properties:
+      cart_id: { type: string, format: uuid }
+      address_id: { type: string, format: uuid }
+      delivery_slot_id: { type: string, format: uuid }
+
+  CheckoutResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: object
+        properties:
+          order_id: { type: string, format: uuid }
+          payment:
+            type: object
+            properties:
+              provider: { type: string, example: razorpay }
+              provider_order_id: { type: string }
+              amount: { type: number, format: float }
+              currency: { type: string, example: INR }
+            required: [provider, provider_order_id, amount, currency]
+        required: [order_id, payment]
+    required: [success, data]
+
+  OrderStatus:
+    type: string
+    enum: [created, paid, accepted, preparing, dispatched, delivered, cancelled, refunded]
+
+  Order:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      status: { $ref: '#/schemas/OrderStatus' }
+      total: { type: number, format: float }
+      created_at: { type: string, format: date-time }
+    required: [id, status, total, created_at]
+
+  OrderListResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data:
+        type: array
+        items: { $ref: '#/schemas/Order' }
+    required: [success, data]
+
+  OrderDetail:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      status: { $ref: '#/schemas/OrderStatus' }
+      total: { type: number, format: float }
+      delivery_slot_id: { type: string, format: uuid }
+      address:
+        type: object
+        properties:
+          id: { type: string, format: uuid }
+          line1: { type: string }
+          area: { type: string }
+          city: { type: string }
+          pincode: { type: string }
+        required: [id, line1, city, pincode]
+      items:
+        type: array
+        items:
+          type: object
+          properties:
+            variant_id: { type: string, format: uuid }
+            qty: { type: integer }
+            price_snapshot: { type: number, format: float }
+          required: [variant_id, qty, price_snapshot]
+    required: [id, status, total, items]
+
+  OrderResponse:
+    type: object
+    properties:
+      success: { type: boolean, example: true }
+      data: { $ref: '#/schemas/OrderDetail' }
+    required: [success, data]
+
+  AdminBrandCreateRequest:
+    type: object
+    required: [name]
+    properties:
+      name: { type: string }
+      description: { type: string }
+      min_bulk_qty: { type: integer, default: 0 }
+      min_bulk_value: { type: number, format: float, default: 0 }
+
+  AdminProductCreateRequest:
+    type: object
+    required: [brand_id, name, category, variants]
+    properties:
+      brand_id: { type: string, format: uuid }
+      name: { type: string }
+      category: { $ref: '#/schemas/ProductCategory' }
+      variants:
+        type: array
+        items:
+          type: object
+          properties:
+            name: { type: string }
+            price: { type: number, format: float }
+            sku: { type: string }
+          required: [name, price, sku]

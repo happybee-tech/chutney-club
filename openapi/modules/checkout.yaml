@@ -1,0 +1,18 @@
+paths:
+  /checkout:
+    post:
+      tags: [Checkout]
+      summary: Checkout cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components.yaml#/schemas/CheckoutRequest'
+      responses:
+        '200':
+          description: Checkout response
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/CheckoutResponse'

@@ -1,0 +1,52 @@
+paths:
+  /admin/brands:
+    post:
+      tags: [Admin]
+      summary: Create brand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components.yaml#/schemas/AdminBrandCreateRequest'
+      responses:
+        '200':
+          description: Brand created
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/IdResponse'
+
+  /admin/products:
+    post:
+      tags: [Admin]
+      summary: Create product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components.yaml#/schemas/AdminProductCreateRequest'
+      responses:
+        '200':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/IdResponse'
+
+  /admin/orders:
+    get:
+      tags: [Admin]
+      summary: List orders for admin
+      parameters:
+        - in: query
+          name: status
+          schema: { $ref: '../components.yaml#/schemas/OrderStatus' }
+      responses:
+        '200':
+          description: Admin orders
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/OrderListResponse'

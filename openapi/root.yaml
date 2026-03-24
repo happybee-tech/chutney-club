@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: Happybee API
+  version: 1.0.0
+  description: Ecommerce API for multi-brand marketplace with bulk orders and perishables.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/otp/request:
+    $ref: './modules/auth.yaml#/paths/~1auth~1otp~1request'
+  /auth/otp/verify:
+    $ref: './modules/auth.yaml#/paths/~1auth~1otp~1verify'
+  /auth/refresh:
+    $ref: './modules/auth.yaml#/paths/~1auth~1refresh'
+  /auth/logout:
+    $ref: './modules/auth.yaml#/paths/~1auth~1logout'
+
+  /users/me:
+    $ref: './modules/users.yaml#/paths/~1users~1me'
+
+  /brands:
+    $ref: './modules/brands.yaml#/paths/~1brands'
+  /brands/{id}:
+    $ref: './modules/brands.yaml#/paths/~1brands~1{id}'
+
+  /products:
+    $ref: './modules/catalog.yaml#/paths/~1products'
+  /products/{id}:
+    $ref: './modules/catalog.yaml#/paths/~1products~1{id}'
+
+  /cart:
+    $ref: './modules/cart.yaml#/paths/~1cart'
+  /cart/items:
+    $ref: './modules/cart.yaml#/paths/~1cart~1items'
+  /cart/items/{id}:
+    $ref: './modules/cart.yaml#/paths/~1cart~1items~1{id}'
+  /cart/validate:
+    $ref: './modules/cart.yaml#/paths/~1cart~1validate'
+
+  /delivery-slots:
+    $ref: './modules/delivery.yaml#/paths/~1delivery-slots'
+
+  /checkout:
+    $ref: './modules/checkout.yaml#/paths/~1checkout'
+
+  /orders:
+    $ref: './modules/orders.yaml#/paths/~1orders'
+  /orders/{id}:
+    $ref: './modules/orders.yaml#/paths/~1orders~1{id}'
+
+  /payments/razorpay/webhook:
+    $ref: './modules/payments.yaml#/paths/~1payments~1razorpay~1webhook'
+
+  /admin/brands:
+    $ref: './modules/admin.yaml#/paths/~1admin~1brands'
+  /admin/products:
+    $ref: './modules/admin.yaml#/paths/~1admin~1products'
+  /admin/orders:
+    $ref: './modules/admin.yaml#/paths/~1admin~1orders'
+
+components:
+  $ref: './components.yaml'

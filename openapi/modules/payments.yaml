@@ -1,0 +1,24 @@
+paths:
+  /payments/razorpay/webhook:
+    post:
+      tags: [Payments]
+      security: []
+      summary: Razorpay webhook
+      parameters:
+        - in: header
+          name: X-Razorpay-Signature
+          schema: { type: string }
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook accepted
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/EmptyOk'

@@ -1,0 +1,26 @@
+paths:
+  /brands:
+    get:
+      tags: [Brands]
+      summary: List brands
+      responses:
+        '200':
+          description: Brands list
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/BrandListResponse'
+
+  /brands/{id}:
+    get:
+      tags: [Brands]
+      summary: Get brand
+      parameters:
+        - $ref: '../components.yaml#/parameters/IdPath'
+      responses:
+        '200':
+          description: Brand detail
+          content:
+            application/json:
+              schema:
+                $ref: '../components.yaml#/schemas/BrandResponse'

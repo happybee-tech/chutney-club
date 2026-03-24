@@ -1,0 +1,312 @@
+{
+  "info": {
+    "name": "Happybee API",
+    "_postman_id": "f6d4c2b8-5f41-4b8d-9c38-3c8a3b28f1e2",
+    "description": "Collection for currently implemented Happybee endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "adminApiKey", "value": "dev-admin-key" },
+    { "key": "brandId", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "productId", "value": "" },
+    { "key": "variantId", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "cartId", "value": "" },
+    { "key": "cartItemId", "value": "" },
+    { "key": "slotId", "value": "" },
+    { "key": "orderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "GET Brands",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/brands"
+          }
+        },
+        {
+          "name": "GET Brand By Id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/brands/{{brandId}}"
+          }
+        },
+        {
+          "name": "GET Categories",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/categories"
+          }
+        },
+        {
+          "name": "GET Products (List)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/products?brand_id={{brandId}}&category_id={{categoryId}}&perishable=true&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"],
+              "query": [
+                { "key": "brand_id", "value": "{{brandId}}" },
+                { "key": "category_id", "value": "{{categoryId}}" },
+                { "key": "perishable", "value": "true" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Product By Id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        },
+        {
+          "name": "GET Delivery Slots",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/delivery-slots?category=both&date=2026-02-13",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "delivery-slots"],
+              "query": [
+                { "key": "category", "value": "both" },
+                { "key": "date", "value": "2026-02-13" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "POST Create Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"order_type\": \"single\"\n}"
+            },
+            "url": "{{baseUrl}}/api/cart"
+          }
+        },
+        {
+          "name": "GET Cart By Id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/cart/{{cartId}}"
+          }
+        },
+        {
+          "name": "POST Add Cart Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart_id\": \"{{cartId}}\",\n  \"variant_id\": \"{{variantId}}\",\n  \"qty\": 2\n}"
+            },
+            "url": "{{baseUrl}}/api/cart/items"
+          }
+        },
+        {
+          "name": "PATCH Update Cart Item",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qty\": 3\n}"
+            },
+            "url": "{{baseUrl}}/api/cart/items/{{cartItemId}}"
+          }
+        },
+        {
+          "name": "DELETE Cart Item",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/cart/items/{{cartItemId}}"
+          }
+        },
+        {
+          "name": "POST Validate Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart_id\": \"{{cartId}}\",\n  \"delivery_slot_id\": \"{{slotId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/cart/validate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Checkout",
+      "item": [
+        {
+          "name": "POST Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart_id\": \"{{cartId}}\",\n  \"delivery_slot_id\": \"{{slotId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/checkout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "POST Create Brand",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo Brand\",\n  \"description\": \"Demo\",\n  \"min_bulk_qty\": 10,\n  \"bulk_enabled\": true,\n  \"bulk_pricing\": {\n    \"slabs\": [\n      { \"min\": 10, \"max\": 19, \"discountPct\": 5 },\n      { \"min\": 20, \"discountPct\": 10 }\n    ]\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/brands"
+          }
+        },
+        {
+          "name": "PATCH Update Brand",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"min_bulk_qty\": 20,\n  \"bulk_enabled\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/brands/{{brandId}}"
+          }
+        },
+        {
+          "name": "POST Create Category",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Juices\",\n  \"slug\": \"juices\",\n  \"description\": \"Cold-pressed juices\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/categories"
+          }
+        },
+        {
+          "name": "PATCH Update Category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated description\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/categories/{{categoryId}}"
+          }
+        },
+        {
+          "name": "POST Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand_id\": \"{{brandId}}\",\n  \"name\": \"Demo Product\",\n  \"description\": \"Demo description\",\n  \"is_perishable\": false,\n  \"category_ids\": [\"{{categoryId}}\"],\n  \"variants\": [\n    { \"name\": \"250g\", \"price\": 199, \"sku\": \"DEMO-250\" }\n  ],\n  \"images\": [\n    { \"url\": \"https://placehold.co/600x400?text=Demo\", \"sortOrder\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/products"
+          }
+        },
+        {
+          "name": "PATCH Update Product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Product Name\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/products/{{productId}}"
+          }
+        },
+        {
+          "name": "GET Admin Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/orders?status=created&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "orders"],
+              "query": [
+                { "key": "status", "value": "created" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH Admin Order Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Admin-Key", "value": "{{adminApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/orders/{{orderId}}/status"
+          }
+        }
+      ]
+    }
+  ]
+}
