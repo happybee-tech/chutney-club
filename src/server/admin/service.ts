@@ -1,4 +1,5 @@
 import { prisma } from '../_shared/db/prisma';
+import { Prisma } from '@prisma/client';
 import type { OrderStatus } from '@prisma/client';
 
 export async function listBrandsAdmin() {
@@ -22,7 +23,7 @@ export async function createBrand(input: {
       minBulkQty: input.minBulkQty ?? 0,
       minBulkValue: input.minBulkValue ?? 0,
       bulkEnabled: input.bulkEnabled ?? false,
-      bulkPricing: input.bulkPricing ?? undefined,
+      bulkPricing: (input.bulkPricing as Prisma.InputJsonValue | undefined) ?? undefined,
       isActive: true,
     },
   });
@@ -49,7 +50,10 @@ export async function updateBrand(id: string, input: {
       minBulkQty: input.minBulkQty,
       minBulkValue: input.minBulkValue,
       bulkEnabled: input.bulkEnabled,
-      bulkPricing: input.bulkPricing === null ? null : input.bulkPricing,
+      bulkPricing:
+        input.bulkPricing === null
+          ? Prisma.DbNull
+          : (input.bulkPricing as Prisma.InputJsonValue | undefined),
       isActive: input.isActive,
     },
   });

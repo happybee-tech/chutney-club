@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/_shared/db/prisma';
 import { getSupabaseAnonClient } from '@/server/_shared/auth/supabase';
 
@@ -63,21 +64,30 @@ export async function POST(
       data: {
         surveyId,
         userId,
-        answers: {
-          create: answers.map((raw: unknown) => {
-            const answer = (raw ?? {}) as Record<string, unknown>;
-            return {
-              questionId: answer.questionId,
-              rating: typeof answer.rating === 'number' ? answer.rating : null,
-              boolValue: typeof answer.boolValue === 'boolean' ? answer.boolValue : null,
-              textValue: typeof answer.textValue === 'string' ? answer.textValue : null,
-              optionValue: typeof answer.optionValue === 'string' ? answer.optionValue : null,
-              optionValues: Array.isArray(answer.optionValues) ? answer.optionValues : null,
-            };
-          })
-        }
       }
     });
+
+    const payload: Prisma.SurveyAnswerCreateManyInput[] = [];
+    for (const raw of answers) {
+      const answer = (raw ?? {}) as Record<string, unknown>;
+      const questionId = typeof answer.questionId === 'string' ? answer.questionId : '';
+      if (!questionId) continue;
+      payload.push({
+        responseId: response.id,
+        questionId,
+        rating: typeof answer.rating === 'number' ? answer.rating : null,
+        boolValue: typeof answer.boolValue === 'boolean' ? answer.boolValue : null,
+        textValue: typeof answer.textValue === 'string' ? answer.textValue : null,
+        optionValue: typeof answer.optionValue === 'string' ? answer.optionValue : null,
+        optionValues: Array.isArray(answer.optionValues)
+          ? (answer.optionValues as Prisma.InputJsonValue)
+          : undefined,
+      });
+    }
+
+    if (payload.length) {
+      await prisma.surveyAnswer.createMany({ data: payload });
+    }
 
     return NextResponse.json({ success: true, responseId: response.id });
   } catch (error) {

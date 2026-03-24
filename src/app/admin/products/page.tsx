@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -54,7 +55,7 @@ type VariantInput = {
 };
 type UploadedImage = { path?: string; url: string; name: string; size?: number };
 
-export default function AdminProductsPage() {
+function AdminProductsPageContent() {
   const searchParams = useSearchParams();
   const selectedBrandId = searchParams.get('brand_id') ?? '';
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -739,5 +740,13 @@ export default function AdminProductsPage() {
         }}
       />
     </AdminShell>
+  );
+}
+
+export default function AdminProductsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-[#6B769E]">Loading products...</div>}>
+      <AdminProductsPageContent />
+    </Suspense>
   );
 }

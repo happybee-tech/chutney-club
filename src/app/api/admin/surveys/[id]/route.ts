@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import type { SurveyQuestionType } from '@prisma/client';
 import { prisma } from '@/server/_shared/db/prisma';
 
-const ALLOWED_TYPES = new Set([
+const ALLOWED_TYPES = new Set<SurveyQuestionType>([
   'rating',
   'yes_no',
   'short_text',
@@ -10,14 +11,23 @@ const ALLOWED_TYPES = new Set([
   'multi_choice',
 ]);
 
+type NormalizedQuestion = {
+  question: string;
+  type: SurveyQuestionType;
+  options: string[];
+  ratingLabels: string[];
+  isRequired: boolean;
+  sortOrder: number;
+};
+
 function normalizeQuestions(input: unknown[]) {
   return input
     .map((raw, index) => {
       const q = (raw ?? {}) as Record<string, unknown>;
       const question = typeof q.question === 'string' ? q.question.trim() : '';
       if (!question) return null;
-      const rawType = typeof q.type === 'string' ? q.type : 'rating';
-      const type = ALLOWED_TYPES.has(rawType) ? rawType : 'rating';
+      const rawType = typeof q.type === 'string' ? (q.type as SurveyQuestionType) : 'rating';
+      const type: SurveyQuestionType = ALLOWED_TYPES.has(rawType) ? rawType : 'rating';
       const options =
         Array.isArray(q.options) && (type === 'single_choice' || type === 'multi_choice')
           ? q.options
@@ -33,13 +43,13 @@ function normalizeQuestions(input: unknown[]) {
       return {
         question,
         type,
-        options: options.length ? options : null,
-        ratingLabels: ratingLabels.length ? ratingLabels : null,
+        options,
+        ratingLabels,
         isRequired: q.isRequired === false ? false : true,
         sortOrder: index,
       };
     })
-    .filter((value): value is { question: string; type: string; options: string[] | null; ratingLabels: string[] | null; isRequired: boolean; sortOrder: number } => Boolean(value));
+    .filter((value): value is NormalizedQuestion => Boolean(value));
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

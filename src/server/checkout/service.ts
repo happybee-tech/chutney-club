@@ -76,7 +76,7 @@ export async function checkout(input: {
           minBulkQty: cart.brand?.minBulkQty ?? 0,
           bulkPricing: coerceBulkPricing(cart.brand?.bulkPricing),
         })
-      : { ok: true, result: calculateSinglePricing(items) };
+      : ({ ok: true as const, result: calculateSinglePricing(items) });
 
   if (!pricing.ok) {
     return { ok: false, error: pricing.error } as const;

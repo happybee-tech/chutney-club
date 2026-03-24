@@ -113,7 +113,7 @@ export default function AdminSurveysPage() {
       const res = await fetch(`/api/admin/surveys/${survey.id}`, { credentials: 'include' });
       const data = await res.json();
       if (data.success && data.data) {
-        const s = data.data;
+        const s = data.data as Survey;
         setEditId(s.id);
         setBrandId(s.brandId);
         setName(s.name);
@@ -124,7 +124,7 @@ export default function AdminSurveysPage() {
         setEndDate(s.endDate.split('T')[0]);
         if (s.questions && s.questions.length > 0) {
           setQuestions(
-            s.questions.map((q: Survey['questions'][number]) => ({
+            s.questions.map((q) => ({
               question: q.question ?? '',
               type: q.type ?? 'rating',
               options: Array.isArray(q.options) && q.options.length ? q.options : ['', ''],
@@ -239,8 +239,11 @@ export default function AdminSurveysPage() {
   }
   function updateQuestionField(index: number, field: keyof QuestionDraft, value: string | boolean) {
     const newQ = [...questions];
-    if (field === 'question' || field === 'type') {
-      newQ[index][field] = String(value) as QuestionDraft[typeof field];
+    if (field === 'question') {
+      newQ[index].question = String(value);
+    } else if (field === 'type') {
+      const nextType = String(value) as QuestionDraft['type'];
+      newQ[index].type = nextType;
     } else if (field === 'isRequired') {
       newQ[index].isRequired = Boolean(value);
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   OverviewIcon,
@@ -50,7 +50,6 @@ const NAV_ITEMS: NavItem[] = [
 export function AdminShell({ title, children }: AdminShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<AdminUser | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -111,20 +110,17 @@ export function AdminShell({ title, children }: AdminShellProps) {
   }, []);
 
   useEffect(() => {
-    const queryBrand = searchParams.get('brand_id') ?? '';
+    if (typeof window === 'undefined') return;
+    const queryBrand = new URLSearchParams(window.location.search).get('brand_id') ?? '';
     if (queryBrand) {
       setSelectedBrandId(queryBrand);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('hb_admin_brand_id', queryBrand);
-      }
+      window.localStorage.setItem('hb_admin_brand_id', queryBrand);
       return;
     }
 
-    if (typeof window !== 'undefined') {
-      const stored = window.localStorage.getItem('hb_admin_brand_id') ?? '';
-      if (stored) setSelectedBrandId(stored);
-    }
-  }, [searchParams]);
+    const stored = window.localStorage.getItem('hb_admin_brand_id') ?? '';
+    if (stored) setSelectedBrandId(stored);
+  }, [pathname]);
 
   async function handleLogout() {
     router.replace('/admin/logout');
@@ -150,7 +146,7 @@ export function AdminShell({ title, children }: AdminShellProps) {
       }
     }
 
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     if (brandId) {
       params.set('brand_id', brandId);
     } else {

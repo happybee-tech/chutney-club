@@ -55,8 +55,8 @@ export function coerceBulkPricing(input: unknown): BulkPricingConfig | undefined
   const candidate = input as { slabs?: unknown };
   if (!Array.isArray(candidate.slabs)) return undefined;
 
-  const slabs: BulkPricingSlab[] = candidate.slabs
-    .map((slab) => {
+  const slabs = candidate.slabs
+    .map<BulkPricingSlab | null>((slab) => {
       if (!slab || typeof slab !== 'object') return null;
       const raw = slab as { min?: unknown; max?: unknown; discountPct?: unknown };
       const min = Number(raw.min);
@@ -66,7 +66,7 @@ export function coerceBulkPricing(input: unknown): BulkPricingConfig | undefined
       if (max != null && Number.isNaN(max)) return null;
       return { min, max, discountPct };
     })
-    .filter((slab): slab is BulkPricingSlab => Boolean(slab));
+    .filter((slab): slab is BulkPricingSlab => slab !== null);
 
   if (!slabs.length) return undefined;
   return { slabs };

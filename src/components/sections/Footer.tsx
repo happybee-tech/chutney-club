@@ -199,7 +199,7 @@ export function Footer() {
       <SurveyModal
         isOpen={isSurveyOpen}
         onClose={() => setIsSurveyOpen(false)}
-        survey={activeSurvey}
+        survey={activeSurvey ?? undefined}
       />
     </>
   );

@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -22,7 +23,7 @@ type Category = {
   brand?: { id: string; name: string };
 };
 
-export default function AdminCategoriesPage() {
+function AdminCategoriesPageContent() {
   const searchParams = useSearchParams();
   const selectedBrandId = searchParams.get('brand_id') ?? '';
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -382,5 +383,13 @@ export default function AdminCategoriesPage() {
         }}
       />
     </AdminShell>
+  );
+}
+
+export default function AdminCategoriesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-[#6B769E]">Loading categories...</div>}>
+      <AdminCategoriesPageContent />
+    </Suspense>
   );
 }

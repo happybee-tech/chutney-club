@@ -83,12 +83,12 @@ export function SurveyModal({ isOpen, onClose, survey }: SurveyModalProps) {
     return { left, right };
   }, [ratingLabels]);
 
-  const setAnswer = (questionId: string, patch: Partial<SurveyAnswer>) => {
+  const setAnswer = (questionId: string, patch: Omit<Partial<SurveyAnswer>, 'questionId'>) => {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: {
-        questionId,
         ...prev[questionId],
+        questionId,
         ...patch,
       },
     }));

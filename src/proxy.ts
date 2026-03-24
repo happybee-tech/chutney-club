@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 
-export function middleware() {
+export function proxy() {
   return NextResponse.next();
 }
 
 export const config = {
   matcher: ['/api/admin/:path*'],
 };
+

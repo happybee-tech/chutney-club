@@ -294,7 +294,7 @@ export default function AdminCouponsPage() {
         title={`${toggleTarget?.isActive ? 'Disable' : 'Enable'} coupon`}
         message={`Do you want to ${toggleTarget?.isActive ? 'disable' : 'enable'} ${toggleTarget?.code}?`}
         confirmLabel={toggleTarget?.isActive ? 'Disable' : 'Enable'}
-        onCancel={() => setToggleTarget(null)}
+        onClose={() => setToggleTarget(null)}
         onConfirm={async () => {
           if (!toggleTarget) return;
           await toggleCoupon(toggleTarget);
@@ -306,8 +306,7 @@ export default function AdminCouponsPage() {
         title="Delete coupon"
         message={`Do you want to delete ${deleteTarget?.code}?`}
         confirmLabel="Delete"
-        intent="danger"
-        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
         onConfirm={async () => {
           if (!deleteTarget) return;
           await deleteCoupon(deleteTarget);
@@ -317,4 +316,3 @@ export default function AdminCouponsPage() {
     </AdminShell>
   );
 }
-

@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -36,7 +37,7 @@ const STATUS_OPTIONS: OrderStatus[] = [
   'refunded',
 ];
 
-export default function AdminOrdersPage() {
+function AdminOrdersPageContent() {
   const searchParams = useSearchParams();
   const selectedBrandId = searchParams.get('brand_id') ?? '';
   const [orders, setOrders] = useState<Order[]>([]);
@@ -151,5 +152,13 @@ export default function AdminOrdersPage() {
         </table>
       </div>
     </AdminShell>
+  );
+}
+
+export default function AdminOrdersPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-[#6B769E]">Loading orders...</div>}>
+      <AdminOrdersPageContent />
+    </Suspense>
   );
 }
