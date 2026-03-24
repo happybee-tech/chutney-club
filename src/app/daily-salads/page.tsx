@@ -222,7 +222,7 @@ export default function DailySaladsPage() {
                     <li key={point}>• {point}</li>
                   ))}
                 </ul>
-                <button type="button" className="mt-5 w-full rounded-lg bg-[#E67E22] px-4 py-2 text-sm font-bold text-white shadow-[0_10px_24px_rgba(230,126,34,0.34)]">
+                <button type="button" className="mt-5 w-full rounded-lg bg-[#5B821F] px-4 py-2 text-sm font-bold text-white shadow-[0_10px_24px_rgba(91,130,31,0.34)]">
                   Choose Plan
                 </button>
               </article>

@@ -1,7 +1,7 @@
 // Happybee Brand Colors
 export const COLORS = {
   primaryYellow: '#F7B933',
-  primaryOrange: '#E15E3F',
+  primaryOrange: '#5B821F',
   mainBackground: '#FFF4E9',
   cardBackground: '#FFFFFF',
   headingPurple: '#4B2E83',

@@ -17,6 +17,7 @@ type OrderStatus =
 
 type Order = {
   id: string;
+  orderNo?: string | null;
   orderType: 'single' | 'bulk';
   status: OrderStatus;
   total: string;
@@ -125,7 +126,7 @@ export default function AdminOrdersPage() {
             ) : (
               orders.map((order) => (
                 <tr key={order.id} className="border-b border-[#EEF2FF] text-[#4E5778]">
-                  <td className="py-3 font-medium text-[#232B4A]">{order.id.slice(0, 8)}...</td>
+                  <td className="py-3 font-medium text-[#232B4A]">{order.orderNo ?? `${order.id.slice(0, 8)}...`}</td>
                   <td className="py-3 uppercase">{order.orderType}</td>
                   <td className="py-3">{order.brandId ? order.brandId.slice(0, 8) : '-'}</td>
                   <td className="py-3">Rs {order.total}</td>

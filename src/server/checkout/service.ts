@@ -1,7 +1,15 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../_shared/db/prisma';
 import { validateCart } from '../cart/service';
-import { calculateBulkPricing, calculateSinglePricing } from '../pricing/engine';
+import { calculateBulkPricing, calculateSinglePricing, coerceBulkPricing } from '../pricing/engine';
 import { applyCoupon } from '../pricing/coupons';
+
+function generateOrderNo() {
+  const randomTenDigits = Math.floor(Math.random() * 10_000_000_000)
+    .toString()
+    .padStart(10, '0');
+  return `ORD${randomTenDigits}`;
+}
 
 export async function checkout(input: {
   userId: string;
@@ -11,7 +19,10 @@ export async function checkout(input: {
   communityId?: string;
   locationId?: string;
   couponCode?: string;
+  fulfillmentType?: 'pickup' | 'delivery';
 }) {
+  const fulfillmentType = input.fulfillmentType ?? 'pickup';
+
   const validation = await validateCart({
     userId: input.userId,
     cartId: input.cartId,
@@ -39,6 +50,10 @@ export async function checkout(input: {
     return { ok: false, error: 'CART_EMPTY' } as const;
   }
 
+  if (fulfillmentType === 'delivery' && !input.addressId) {
+    return { ok: false, error: 'DELIVERY_ADDRESS_REQUIRED' } as const;
+  }
+
   if (cart.orderType === 'bulk') {
     if (!input.communityId) {
       return { ok: false, error: 'BULK_COMMUNITY_REQUIRED' } as const;
@@ -59,7 +74,7 @@ export async function checkout(input: {
           items,
           bulkEnabled: cart.brand?.bulkEnabled ?? false,
           minBulkQty: cart.brand?.minBulkQty ?? 0,
-          bulkPricing: (cart.brand?.bulkPricing as Record<string, unknown> | null) ?? undefined,
+          bulkPricing: coerceBulkPricing(cart.brand?.bulkPricing),
         })
       : { ok: true, result: calculateSinglePricing(items) };
 
@@ -67,26 +82,45 @@ export async function checkout(input: {
     return { ok: false, error: pricing.error } as const;
   }
 
-  const coupon = applyCoupon(pricing.result.subtotal, input.couponCode);
+  const coupon = await applyCoupon(pricing.result.subtotal, input.couponCode);
   const discount = pricing.result.discount + coupon.discount;
   const subtotal = pricing.result.subtotal;
   const total = Math.max(subtotal - discount, 0);
 
   const result = await prisma.$transaction(async (tx) => {
-    const order = await tx.order.create({
-      data: {
-        userId: cart.userId,
-        brandId: cart.brandId,
-        orderType: cart.orderType,
-        subtotal,
-        discount,
-        total,
-        deliverySlotId: input.deliverySlotId ?? null,
-        addressId: input.addressId ?? null,
-        communityId: input.communityId ?? null,
-        locationId: input.locationId ?? null,
-      },
-    });
+    let order: Awaited<ReturnType<typeof tx.order.create>> | null = null;
+    let attempts = 0;
+    while (!order && attempts < 5) {
+      attempts += 1;
+      try {
+        order = await tx.order.create({
+          data: {
+            orderNo: generateOrderNo(),
+            userId: cart.userId,
+            brandId: cart.brandId,
+            orderType: cart.orderType,
+            subtotal,
+            discount,
+            total,
+            deliverySlotId: input.deliverySlotId ?? null,
+            addressId: fulfillmentType === 'delivery' ? input.addressId ?? null : null,
+            communityId: input.communityId ?? null,
+            locationId: input.locationId ?? null,
+          },
+        });
+      } catch (error) {
+        const isDuplicateOrderNo =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          Array.isArray(error.meta?.target) &&
+          (error.meta?.target as string[]).includes('orderNo');
+        if (!isDuplicateOrderNo) throw error;
+      }
+    }
+
+    if (!order) {
+      throw new Error('ORDER_NO_GENERATION_FAILED');
+    }
 
     const byBrand = new Map<string, typeof cart.items>();
     for (const item of cart.items) {
@@ -151,6 +185,17 @@ export async function checkout(input: {
     await tx.cart.update({
       where: { id: cart.id },
       data: { status: 'converted' },
+    });
+
+    await tx.orderEvent.create({
+      data: {
+        orderId: order.id,
+        eventType: 'fulfillment_selected',
+        payload: {
+          fulfillmentType,
+          addressId: fulfillmentType === 'delivery' ? input.addressId ?? null : null,
+        },
+      },
     });
 
     return { order, payment };

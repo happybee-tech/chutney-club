@@ -1,5 +1,5 @@
 import { prisma } from '../_shared/db/prisma';
-import { calculateBulkPricing, calculateSinglePricing } from '../pricing/engine';
+import { calculateBulkPricing, calculateSinglePricing, coerceBulkPricing } from '../pricing/engine';
 import { applyCoupon } from '../pricing/coupons';
 
 export async function createCart(input: { userId: string; orderType: 'single' | 'bulk'; brandId?: string }) {
@@ -137,7 +137,7 @@ export async function validateCart(input: { userId: string; cartId: string; deli
       items,
       bulkEnabled: cart.brand?.bulkEnabled ?? false,
       minBulkQty: cart.brand?.minBulkQty ?? 0,
-      bulkPricing: (cart.brand?.bulkPricing as Record<string, unknown> | null) ?? undefined,
+      bulkPricing: coerceBulkPricing(cart.brand?.bulkPricing),
     });
 
     if (!pricing.ok) {
@@ -145,7 +145,7 @@ export async function validateCart(input: { userId: string; cartId: string; deli
       return { valid: false, messages: [message], summary: null };
     }
 
-    const coupon = applyCoupon(pricing.result.subtotal, input.couponCode);
+    const coupon = await applyCoupon(pricing.result.subtotal, input.couponCode);
     const finalDiscount = pricing.result.discount + coupon.discount;
     const finalTotal = Math.max(pricing.result.subtotal - finalDiscount, 0);
     return {
@@ -161,7 +161,7 @@ export async function validateCart(input: { userId: string; cartId: string; deli
   }
 
   const singlePricing = calculateSinglePricing(items);
-  const coupon = applyCoupon(singlePricing.subtotal, input.couponCode);
+  const coupon = await applyCoupon(singlePricing.subtotal, input.couponCode);
   const finalDiscount = singlePricing.discount + coupon.discount;
   const finalTotal = Math.max(singlePricing.subtotal - finalDiscount, 0);
   return {

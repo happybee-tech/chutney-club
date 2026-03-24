@@ -99,22 +99,22 @@ enum UserRole {
 }
 
 model User {
-  id         String        @id @default(uuid())
-  phone      String?       @unique
-  email      String?       @unique
-  name       String?
-  role       UserRole      @default(customer)
-  isActive   Boolean       @default(true)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id        String   @id @default(uuid())
+  phone     String?  @unique
+  email     String?  @unique
+  name      String?
+  role      UserRole @default(customer)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sessions   UserSession[]
-  carts      Cart[]
-  addresses  Address[]
-  orders     Order[]
-  createdCommunities Community[]     @relation("CommunityCreator")
+  sessions             UserSession[]
+  carts                Cart[]
+  addresses            Address[]
+  orders               Order[]
+  createdCommunities   Community[]       @relation("CommunityCreator")
   communityMemberships CommunityMember[] @relation("CommunityMemberUser")
-  surveyResponses    SurveyResponse[]
+  surveyResponses      SurveyResponse[]
 
   @@index([role])
 }
@@ -127,6 +127,7 @@ model UserSession {
   createdAt        DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -157,47 +158,50 @@ model Vendor {
 }
 
 model Brand {
-  id            String   @id @default(uuid())
-  vendorId      String?
-  name          String
-  description   String?
-  logoUrl       String?
-  minBulkQty    Int      @default(0)
-  minBulkValue  Decimal  @default(0)
-  bulkEnabled   Boolean  @default(false)
-  bulkPricing   Json?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(uuid())
+  vendorId     String?
+  name         String
+  description  String?
+  logoUrl      String?
+  minBulkQty   Int      @default(0)
+  minBulkValue Decimal  @default(0)
+  bulkEnabled  Boolean  @default(false)
+  bulkPricing  Json?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  vendor        Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  products      Product[]
-  categories    Category[]
-  inventory     InventoryItem[]
-  carts         Cart[]
-  orders        Order[]
-  subOrders     SubOrder[]
-  surveys       Survey[]
+  vendor     Vendor?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  products   Product[]
+  categories Category[]
+  inventory  InventoryItem[]
+  carts      Cart[]
+  orders     Order[]
+  subOrders  SubOrder[]
+  surveys    Survey[]
 
   @@index([vendorId])
 }
 
 model Product {
-  id          String          @id @default(uuid())
-  brandId     String
-  name        String
-  description String?
-  isPerishable Boolean        @default(false)
-  isActive    Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id           String   @id @default(uuid())
+  brandId      String
+  name         String
+  description  String?
+  sortOrder    Int      @default(0)
+  isPerishable Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  isOutOfStock Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  brand        Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  variants     ProductVariant[]
-  images       ProductImage[]
-  categories   ProductCategory[]
+  brand      Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  variants   ProductVariant[]
+  images     ProductImage[]
+  categories ProductCategory[]
 
   @@index([brandId])
+  @@index([brandId, sortOrder])
   @@index([isPerishable])
 }
 
@@ -211,7 +215,7 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  brand    Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand    Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
   products ProductCategory[]
 
   @@unique([brandId, slug])
@@ -249,10 +253,10 @@ model ProductVariant {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  product     Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
-  inventory   InventoryItem?
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  product      Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory    InventoryItem?
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
   reservations InventoryReservation[]
 
   @@index([productId])
@@ -305,9 +309,9 @@ model Cart {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  brand Brand? @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  items CartItem[]
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand        Brand?                 @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  items        CartItem[]
   reservations InventoryReservation[]
 
   @@index([userId])
@@ -395,8 +399,8 @@ model Community {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  location  Location?        @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  createdBy User?            @relation("CommunityCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  location  Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  createdBy User?             @relation("CommunityCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   members   CommunityMember[]
   orders    Order[]
 
@@ -406,12 +410,12 @@ model Community {
 }
 
 model CommunityMember {
-  id          String                 @id @default(uuid())
+  id          String                @id @default(uuid())
   communityId String
   userId      String
-  role        CommunityMemberRole    @default(member)
-  status      CommunityMemberStatus  @default(active)
-  createdAt   DateTime               @default(now())
+  role        CommunityMemberRole   @default(member)
+  status      CommunityMemberStatus @default(active)
+  createdAt   DateTime              @default(now())
 
   community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   user      User      @relation("CommunityMemberUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -422,6 +426,7 @@ model CommunityMember {
 
 model Order {
   id             String        @id @default(uuid())
+  orderNo        String?       @unique
   userId         String
   brandId        String?
   orderType      OrderType     @default(single)
@@ -456,35 +461,35 @@ model Order {
 }
 
 model SubOrder {
-  id           String      @id @default(uuid())
-  orderId      String
-  brandId      String
-  status       OrderStatus @default(created)
-  subtotal     Decimal     @default(0)
-  tax          Decimal     @default(0)
-  deliveryFee  Decimal     @default(0)
-  discount     Decimal     @default(0)
-  total        Decimal     @default(0)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id          String      @id @default(uuid())
+  orderId     String
+  brandId     String
+  status      OrderStatus @default(created)
+  subtotal    Decimal     @default(0)
+  tax         Decimal     @default(0)
+  deliveryFee Decimal     @default(0)
+  discount    Decimal     @default(0)
+  total       Decimal     @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
-  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  brand        Brand       @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  items        OrderItem[]
+  order Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  brand Brand       @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  items OrderItem[]
 
   @@index([orderId])
   @@index([brandId])
 }
 
 model OrderItem {
-  id            String          @id @default(uuid())
+  id            String   @id @default(uuid())
   orderId       String
   subOrderId    String?
   variantId     String
   qty           Int
   priceSnapshot Decimal
   isPerishable  Boolean
-  createdAt     DateTime        @default(now())
+  createdAt     DateTime @default(now())
 
   order    Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   subOrder SubOrder?      @relation(fields: [subOrderId], references: [id], onDelete: SetNull)
@@ -507,42 +512,42 @@ model OrderEvent {
 }
 
 model Payment {
-  id               String        @id @default(uuid())
-  orderId          String
-  provider         String
-  providerOrderId  String?
+  id                String        @id @default(uuid())
+  orderId           String
+  provider          String
+  providerOrderId   String?
   providerPaymentId String?
-  providerRefundId String?
-  attemptNo        Int           @default(1)
-  method           PaymentMethod @default(unknown)
-  status           PaymentStatus @default(created)
-  amount           Decimal
-  capturedAmount   Decimal       @default(0)
-  refundedAmount   Decimal       @default(0)
-  failureCode      String?
-  failureMessage   String?
-  currency         String        @default("INR")
-  metadata         Json?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  providerRefundId  String?
+  attemptNo         Int           @default(1)
+  method            PaymentMethod @default(unknown)
+  status            PaymentStatus @default(created)
+  amount            Decimal
+  capturedAmount    Decimal       @default(0)
+  refundedAmount    Decimal       @default(0)
+  failureCode       String?
+  failureMessage    String?
+  currency          String        @default("INR")
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   refunds PaymentRefund[]
 
+  @@unique([provider, providerOrderId, attemptNo])
   @@index([orderId])
   @@index([provider, providerPaymentId])
-  @@unique([provider, providerOrderId, attemptNo])
 }
 
 model PaymentRefund {
-  id               String   @id @default(uuid())
+  id               String        @id @default(uuid())
   paymentId        String
   providerRefundId String?
   amount           Decimal
   status           PaymentStatus @default(refunded)
   reason           String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
@@ -563,11 +568,11 @@ model AdminAuditLog {
 }
 
 model WebhookEvent {
-  id        String   @id @default(uuid())
-  provider  String
-  eventId   String
-  eventType String
-  payload   Json
+  id         String   @id @default(uuid())
+  provider   String
+  eventId    String
+  eventType  String
+  payload    Json
   receivedAt DateTime @default(now())
 
   @@unique([provider, eventId])
@@ -585,24 +590,44 @@ model Survey {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  brand       Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  questions   SurveyQuestion[]
-  responses   SurveyResponse[]
+  brand     Brand            @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
 
   @@index([brandId])
   @@index([isActive, startDate, endDate])
 }
 
-model SurveyQuestion {
-  id        String   @id @default(uuid())
-  surveyId  String
-  question  String
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model CouponCampaign {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  discountPct   Decimal
+  minSubtotal   Decimal  @default(0)
+  maxDiscount   Decimal?
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  survey    Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
-  answers   SurveyAnswer[]
+  @@index([isActive, startsAt, endsAt])
+}
+
+model SurveyQuestion {
+  id           String             @id @default(uuid())
+  surveyId     String
+  question     String
+  type         SurveyQuestionType @default(rating)
+  options      Json?
+  ratingLabels Json?
+  isRequired   Boolean            @default(true)
+  sortOrder    Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  survey  Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers SurveyAnswer[]
 
   @@index([surveyId])
 }
@@ -622,15 +647,28 @@ model SurveyResponse {
 }
 
 model SurveyAnswer {
-  id         String   @id @default(uuid())
-  responseId String
-  questionId String
-  rating     Int
-  createdAt  DateTime @default(now())
+  id           String   @id @default(uuid())
+  responseId   String
+  questionId   String
+  rating       Int?
+  boolValue    Boolean?
+  textValue    String?
+  optionValue  String?
+  optionValues Json?
+  createdAt    DateTime @default(now())
 
   response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
   question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([responseId])
   @@index([questionId])
+}
+
+enum SurveyQuestionType {
+  rating
+  yes_no
+  short_text
+  long_text
+  single_choice
+  multi_choice
 }

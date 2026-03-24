@@ -17,8 +17,26 @@ type Survey = {
   startDate: string;
   endDate: string;
   _count?: { responses: number };
-  questions?: { id?: string; question: string; sortOrder: number }[];
+  questions?: {
+    id?: string;
+    question: string;
+    sortOrder: number;
+    type?: 'rating' | 'yes_no' | 'short_text' | 'long_text' | 'single_choice' | 'multi_choice';
+    options?: string[] | null;
+    ratingLabels?: string[] | null;
+    isRequired?: boolean;
+  }[];
 };
+
+type QuestionDraft = {
+  question: string;
+  type: 'rating' | 'yes_no' | 'short_text' | 'long_text' | 'single_choice' | 'multi_choice';
+  options: string[];
+  ratingLabels: string[];
+  isRequired: boolean;
+};
+
+const DEFAULT_RATING_LABELS = ['Very Poor', '', '', '', 'Excellent'];
 
 export default function AdminSurveysPage() {
   const router = useRouter();
@@ -39,15 +57,17 @@ export default function AdminSurveysPage() {
   const [isActive, setIsActive] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [questions, setQuestions] = useState([{ question: '' }]);
+  const [questions, setQuestions] = useState<QuestionDraft[]>([
+    { question: '', type: 'rating', options: ['', ''], ratingLabels: [...DEFAULT_RATING_LABELS], isRequired: true },
+  ]);
 
   async function loadData() {
     setLoading(true);
     setError(null);
     try {
       const [surveysRes, brandsRes] = await Promise.all([
-        fetch('/api/admin/surveys', { credentials: 'include' }),
-        fetch('/api/admin/brands', { credentials: 'include' })
+        fetch('/api/admin/surveys', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/admin/brands', { credentials: 'include', cache: 'no-store' })
       ]);
       const sData = await surveysRes.json();
       const bData = await brandsRes.json();
@@ -78,7 +98,7 @@ export default function AdminSurveysPage() {
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     setEndDate(nextMonth.toISOString().split('T')[0]);
     
-    setQuestions([{ question: '' }]);
+    setQuestions([{ question: '', type: 'rating', options: ['', ''], ratingLabels: [...DEFAULT_RATING_LABELS], isRequired: true }]);
   }
 
   function openAdd() {
@@ -103,7 +123,18 @@ export default function AdminSurveysPage() {
         setStartDate(s.startDate.split('T')[0]);
         setEndDate(s.endDate.split('T')[0]);
         if (s.questions && s.questions.length > 0) {
-          setQuestions(s.questions);
+          setQuestions(
+            s.questions.map((q: Survey['questions'][number]) => ({
+              question: q.question ?? '',
+              type: q.type ?? 'rating',
+              options: Array.isArray(q.options) && q.options.length ? q.options : ['', ''],
+              ratingLabels:
+                Array.isArray(q.ratingLabels) && q.ratingLabels.length
+                  ? [...q.ratingLabels.slice(0, 5), ...Array.from({ length: Math.max(0, 5 - q.ratingLabels.length) }, () => '')]
+                  : [...DEFAULT_RATING_LABELS],
+              isRequired: q.isRequired !== false,
+            }))
+          );
         }
         setDrawerOpen(true);
       }
@@ -124,11 +155,34 @@ export default function AdminSurveysPage() {
       isActive,
       startDate: new Date(startDate).toISOString(),
       endDate: new Date(endDate).toISOString(),
-      questions: questions.filter(q => q.question.trim() !== '')
+      questions: questions
+        .filter((q) => q.question.trim() !== '')
+        .map((q) => ({
+          question: q.question.trim(),
+          type: q.type,
+          isRequired: q.isRequired,
+          options:
+            q.type === 'single_choice' || q.type === 'multi_choice'
+              ? q.options
+                  .map((opt) => opt.trim())
+                  .filter(Boolean)
+              : [],
+          ratingLabels: q.type === 'rating' ? q.ratingLabels.map((label) => label.trim()) : [],
+        })),
     };
 
     if (payload.questions.length === 0) {
       setError('You must add at least one question.');
+      return;
+    }
+
+    const invalidChoiceQuestion = payload.questions.find(
+      (q) =>
+        (q.type === 'single_choice' || q.type === 'multi_choice') &&
+        (!Array.isArray(q.options) || q.options.length < 2)
+    );
+    if (invalidChoiceQuestion) {
+      setError('Single choice and multiple choice questions must have at least 2 choices.');
       return;
     }
 
@@ -181,11 +235,41 @@ export default function AdminSurveysPage() {
   }
 
   function addQuestion() {
-    setQuestions([...questions, { question: '' }]);
+    setQuestions([...questions, { question: '', type: 'rating', options: ['', ''], ratingLabels: [...DEFAULT_RATING_LABELS], isRequired: true }]);
   }
-  function updateQuestion(index: number, val: string) {
+  function updateQuestionField(index: number, field: keyof QuestionDraft, value: string | boolean) {
     const newQ = [...questions];
-    newQ[index].question = val;
+    if (field === 'question' || field === 'type') {
+      newQ[index][field] = String(value) as QuestionDraft[typeof field];
+    } else if (field === 'isRequired') {
+      newQ[index].isRequired = Boolean(value);
+    }
+    setQuestions(newQ);
+  }
+  function updateChoice(index: number, optionIndex: number, value: string) {
+    const newQ = [...questions];
+    const nextOptions = [...newQ[index].options];
+    nextOptions[optionIndex] = value;
+    newQ[index].options = nextOptions;
+    setQuestions(newQ);
+  }
+  function addChoice(index: number) {
+    const newQ = [...questions];
+    newQ[index].options = [...newQ[index].options, ''];
+    setQuestions(newQ);
+  }
+  function removeChoice(index: number, optionIndex: number) {
+    const newQ = [...questions];
+    const currentOptions = newQ[index].options;
+    if (currentOptions.length <= 2) return;
+    newQ[index].options = currentOptions.filter((_, i) => i !== optionIndex);
+    setQuestions(newQ);
+  }
+  function updateRatingLabel(index: number, labelIndex: number, value: string) {
+    const newQ = [...questions];
+    const labels = [...newQ[index].ratingLabels];
+    labels[labelIndex] = value;
+    newQ[index].ratingLabels = labels;
     setQuestions(newQ);
   }
   function removeQuestion(index: number) {
@@ -311,18 +395,88 @@ export default function AdminSurveysPage() {
             </div>
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
               {questions.map((q, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="mt-2 text-xs font-bold text-[#7A84AA] w-4">{i + 1}.</span>
-                  <input 
-                    value={q.question} 
-                    onChange={e => updateQuestion(i, e.target.value)} 
-                    placeholder="Enter question text..." 
-                    className="flex-1 rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" 
-                    required 
+                <div key={i} className="rounded-lg border border-[#E4E9FF] bg-[#FAFBFF] p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#7A84AA]">Question {i + 1}</span>
+                    <button type="button" onClick={() => removeQuestion(i)} className="text-[#C7442A] hover:opacity-70 p-1" title="Remove question">
+                      <DeleteIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <input
+                    value={q.question}
+                    onChange={(e) => updateQuestionField(i, 'question', e.target.value)}
+                    placeholder="Enter question text..."
+                    className="mb-2 w-full rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]"
+                    required
                   />
-                  <button type="button" onClick={() => removeQuestion(i)} className="mt-2 text-[#C7442A] hover:opacity-70 p-1" title="Remove question">
-                    <DeleteIcon className="h-4 w-4" />
-                  </button>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <select
+                      value={q.type}
+                      onChange={(e) => updateQuestionField(i, 'type', e.target.value)}
+                      className="rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]"
+                    >
+                      <option value="rating">Star Rating (1-5)</option>
+                      <option value="yes_no">Yes / No</option>
+                      <option value="short_text">Short Text</option>
+                      <option value="long_text">Long Text</option>
+                      <option value="single_choice">Single Choice</option>
+                      <option value="multi_choice">Multiple Choice</option>
+                    </select>
+                    <label className="flex items-center gap-2 text-sm text-[#5B6587]">
+                      <input
+                        type="checkbox"
+                        checked={q.isRequired}
+                        onChange={(e) => updateQuestionField(i, 'isRequired', e.target.checked)}
+                      />
+                      Required
+                    </label>
+                  </div>
+                  {(q.type === 'single_choice' || q.type === 'multi_choice') && (
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-[#6C77A0]">Choices</p>
+                        <button
+                          type="button"
+                          onClick={() => addChoice(i)}
+                          className="inline-flex items-center gap-1 rounded-md border border-[#D7DEF7] bg-white px-2 py-1 text-xs font-semibold text-[#4B2E83]"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" /> Add choice
+                        </button>
+                      </div>
+                      {q.options.map((option, optionIndex) => (
+                        <div key={optionIndex} className="flex items-center gap-2">
+                          <input
+                            value={option}
+                            onChange={(e) => updateChoice(i, optionIndex, e.target.value)}
+                            placeholder={`Choice ${optionIndex + 1}`}
+                            className="w-full rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeChoice(i, optionIndex)}
+                            disabled={q.options.length <= 2}
+                            className="rounded-md border border-[#F1C6CC] bg-white p-2 text-[#C7442A] disabled:cursor-not-allowed disabled:opacity-40"
+                            title="Remove choice"
+                          >
+                            <DeleteIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {q.type === 'rating' && (
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {Array.from({ length: 5 }).map((_, labelIndex) => (
+                        <input
+                          key={labelIndex}
+                          value={q.ratingLabels[labelIndex] ?? ''}
+                          onChange={(e) => updateRatingLabel(i, labelIndex, e.target.value)}
+                          placeholder={`Star ${labelIndex + 1} label`}
+                          className="rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

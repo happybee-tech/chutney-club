@@ -96,7 +96,7 @@ export function BrandsShowcaseSection() {
                   <Link
                     href="/daily-salads"
                     className="px-4 py-2 rounded-lg text-sm font-semibold"
-                    style={{ backgroundColor: '#E67E22', color: '#fff' }}
+                    style={{ backgroundColor: '#5B821F', color: '#fff' }}
                   >
                     View
                   </Link>
@@ -116,7 +116,7 @@ export function BrandsShowcaseSection() {
           <Link
             href="/daily-salads"
             className="inline-flex items-center gap-2 px-10 py-4 rounded-xl font-bold text-lg"
-            style={{ backgroundColor: '#E67E22', color: '#fff' }}
+            style={{ backgroundColor: '#5B821F', color: '#fff' }}
           >
             View All Salads
             <span aria-hidden>→</span>

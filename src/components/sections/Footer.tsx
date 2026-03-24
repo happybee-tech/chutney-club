@@ -8,7 +8,19 @@ import { SurveyModal } from '@/components/survey/SurveyModal';
 
 export function Footer() {
   const [isSurveyOpen, setIsSurveyOpen] = useState(false);
-  const [activeSurvey, setActiveSurvey] = useState<any>(null);
+  const [activeSurvey, setActiveSurvey] = useState<{
+    id?: string;
+    linkTitle?: string;
+    description?: string | null;
+    questions?: Array<{
+      id: string;
+      question: string;
+      type?: 'rating' | 'yes_no' | 'short_text' | 'long_text' | 'single_choice' | 'multi_choice';
+      options?: string[] | null;
+      ratingLabels?: string[] | null;
+      isRequired?: boolean;
+    }>;
+  } | null>(null);
 
   React.useEffect(() => {
     fetch('/api/surveys/active', { credentials: 'include' })
@@ -26,9 +38,10 @@ export function Footer() {
         style={{ backgroundColor: COLORS.headingPurple }}
       >
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+          <div className="grid grid-cols-2 gap-8 mb-12 md:grid-cols-4">
             {/* Brand Section */}
             <motion.div
+              className="col-span-2 md:col-span-1"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
@@ -36,15 +49,15 @@ export function Footer() {
             >
               <div className="flex items-center gap-3 mb-4">
                 <Image
-                  src="/happybee-logo.png"
-                  alt="Happybee"
+                  src="/chutney-club-logo.png"
+                  alt="Chutney Club"
                   width={150}
                   height={75}
                   className="rounded-full"
                 />
               </div>
               <p className="text-sm text-gray-300 leading-relaxed">
-                Healthy food from trusted brands, preordered with intention, delivered to your community.
+                Bold chutneys, balanced meals, and a simpler way to eat well — every single day.
               </p>
             </motion.div>
 
@@ -57,14 +70,18 @@ export function Footer() {
             >
               <h4 className="font-semibold text-white mb-4">Navigation</h4>
               <ul className="space-y-2 text-sm">
-                {['Home', 'Brands', 'How It Works', 'About'].map((link) => (
-                  <li key={link}>
+                {[
+                  { label: 'Home', href: '/' },
+                  { label: 'Menu', href: '/menu' },
+                  { label: 'About', href: '/about' },
+                ].map((link) => (
+                  <li key={link.label}>
                     <motion.a
-                      href="#"
+                      href={link.href}
                       className="text-gray-300 hover:text-white transition-colors"
                       whileHover={{ x: 4 }}
                     >
-                      {link}
+                      {link.label}
                     </motion.a>
                   </li>
                 ))}
@@ -79,15 +96,20 @@ export function Footer() {
               viewport={{ once: true }}
             >
               <h4 className="font-semibold text-white mb-4">Delivery Info</h4>
-              <ul className="space-y-2 text-sm text-gray-300">
-                <li>📦 Daily and scheduled delivery slots</li>
-                <li>📍 Community drop-off locations</li>
-                <li>⏰ Friday 6 PM / Saturday 6 PM</li>
+              <ul className="space-y-2 text-sm">
+                {['Weekday Delivery', 'Weekend Delivery', 'Pick Your Day'].map((item) => (
+                  <li key={item}>
+                    <a href="#" className="text-gray-300 hover:text-white transition-colors">
+                      {item}
+                    </a>
+                  </li>
+                ))}
               </ul>
             </motion.div>
 
             {/* Connect */}
             <motion.div
+              className="col-span-2 md:col-span-1"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
@@ -95,22 +117,48 @@ export function Footer() {
             >
               <h4 className="font-semibold text-white mb-4">Connect</h4>
               <div className="flex gap-4 mb-8">
-                {['Instagram', 'Twitter', 'Facebook'].map((social) => (
+                {[
+                  {
+                    name: 'Instagram',
+                    icon: (
+                      <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>
+                        <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.8" />
+                        <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+                        <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    name: 'X',
+                    icon: (
+                      <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>
+                        <path d="M4 4L20 20M20 4L4 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    name: 'Facebook',
+                    icon: (
+                      <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>
+                        <path d="M14 8h3V4h-3c-2.8 0-5 2.2-5 5v3H6v4h3v4h4v-4h3l1-4h-4V9c0-.6.4-1 1-1Z" fill="currentColor" />
+                      </svg>
+                    ),
+                  },
+                ].map((social) => (
                   <motion.a
-                    key={social}
+                    key={social.name}
                     href="#"
-                    className="text-gray-300 hover:text-white transition-colors text-sm"
+                    aria-label={social.name}
+                    className="text-gray-300 hover:text-white transition-colors"
                     whileHover={{ scale: 1.1 }}
                   >
-                    {social === 'Instagram' && '📷'}
-                    {social === 'Twitter' && '𝕏'}
-                    {social === 'Facebook' && '👥'}
+                    {social.icon}
                   </motion.a>
                 ))}
               </div>
-              
+
               {activeSurvey && (
-                <button 
+                <button
                   onClick={() => setIsSurveyOpen(true)}
                   className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full border text-sm font-bold transition-all hover:bg-white/10"
                   style={{ borderColor: COLORS.primaryYellow, color: COLORS.primaryYellow }}
@@ -133,7 +181,7 @@ export function Footer() {
             viewport={{ once: true }}
             className="mt-8 flex flex-col md:flex-row items-center justify-between text-sm text-gray-400"
           >
-            <p>&copy; 2026 Happybee. All rights reserved.</p>
+            <p>&copy; 2026 Chutney Club. All rights reserved.</p>
             <div className="flex gap-6 mt-4 md:mt-0">
               <a href="#" className="hover:text-white transition-colors">
                 Privacy Policy
@@ -148,10 +196,10 @@ export function Footer() {
           </motion.div>
         </div>
       </footer>
-      <SurveyModal 
-        isOpen={isSurveyOpen} 
-        onClose={() => setIsSurveyOpen(false)} 
-        survey={activeSurvey} 
+      <SurveyModal
+        isOpen={isSurveyOpen}
+        onClose={() => setIsSurveyOpen(false)}
+        survey={activeSurvey}
       />
     </>
   );

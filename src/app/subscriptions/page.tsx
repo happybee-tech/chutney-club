@@ -67,7 +67,7 @@ export default function SubscriptionsPage() {
               <p className="text-xs font-semibold tracking-[0.14em] text-[#8B836F] uppercase">My Subscriptions</p>
               <h1 className="mt-1 text-3xl font-black text-[#1B1915]">Manage Daily Salad Plans</h1>
             </div>
-            <Link href="/daily-salads" className="rounded-xl bg-[#E67E22] px-5 py-2.5 text-sm font-bold text-white">
+            <Link href="/daily-salads" className="rounded-xl bg-[#5B821F] px-5 py-2.5 text-sm font-bold text-white">
               Browse Daily Salads
             </Link>
           </div>

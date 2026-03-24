@@ -1,10 +1,10 @@
-type BulkPricingSlab = {
+export type BulkPricingSlab = {
   min: number;
   max?: number;
   discountPct: number;
 };
 
-type BulkPricingConfig = {
+export type BulkPricingConfig = {
   slabs: BulkPricingSlab[];
 };
 
@@ -48,6 +48,28 @@ export function calculateBulkPricing(params: {
       appliedSlab: slab,
     },
   };
+}
+
+export function coerceBulkPricing(input: unknown): BulkPricingConfig | undefined {
+  if (!input || typeof input !== 'object') return undefined;
+  const candidate = input as { slabs?: unknown };
+  if (!Array.isArray(candidate.slabs)) return undefined;
+
+  const slabs: BulkPricingSlab[] = candidate.slabs
+    .map((slab) => {
+      if (!slab || typeof slab !== 'object') return null;
+      const raw = slab as { min?: unknown; max?: unknown; discountPct?: unknown };
+      const min = Number(raw.min);
+      const discountPct = Number(raw.discountPct);
+      const max = raw.max == null ? undefined : Number(raw.max);
+      if (Number.isNaN(min) || Number.isNaN(discountPct)) return null;
+      if (max != null && Number.isNaN(max)) return null;
+      return { min, max, discountPct };
+    })
+    .filter((slab): slab is BulkPricingSlab => Boolean(slab));
+
+  if (!slabs.length) return undefined;
+  return { slabs };
 }
 
 export function calculateSinglePricing(items: CartItem[]): PricingResult {

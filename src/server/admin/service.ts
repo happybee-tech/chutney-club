@@ -22,7 +22,7 @@ export async function createBrand(input: {
       minBulkQty: input.minBulkQty ?? 0,
       minBulkValue: input.minBulkValue ?? 0,
       bulkEnabled: input.bulkEnabled ?? false,
-      bulkPricing: (input.bulkPricing as any) ?? undefined,
+      bulkPricing: input.bulkPricing ?? undefined,
       isActive: true,
     },
   });
@@ -49,7 +49,7 @@ export async function updateBrand(id: string, input: {
       minBulkQty: input.minBulkQty,
       minBulkValue: input.minBulkValue,
       bulkEnabled: input.bulkEnabled,
-      bulkPricing: input.bulkPricing === null ? null : (input.bulkPricing as any),
+      bulkPricing: input.bulkPricing === null ? null : input.bulkPricing,
       isActive: input.isActive,
     },
   });
@@ -127,6 +127,71 @@ export async function deleteCategory(id: string) {
   });
 }
 
+export async function listCouponsAdmin() {
+  return prisma.couponCampaign.findMany({
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function createCouponAdmin(input: {
+  code: string;
+  name: string;
+  discountPct: number;
+  minSubtotal?: number;
+  maxDiscount?: number | null;
+  startsAt?: Date | null;
+  endsAt?: Date | null;
+  isActive?: boolean;
+}) {
+  return prisma.couponCampaign.create({
+    data: {
+      code: input.code.trim().toUpperCase(),
+      name: input.name,
+      discountPct: input.discountPct,
+      minSubtotal: input.minSubtotal ?? 0,
+      maxDiscount: input.maxDiscount ?? null,
+      startsAt: input.startsAt ?? null,
+      endsAt: input.endsAt ?? null,
+      isActive: input.isActive ?? true,
+    },
+  });
+}
+
+export async function updateCouponAdmin(
+  id: string,
+  input: {
+    code?: string;
+    name?: string;
+    discountPct?: number;
+    minSubtotal?: number;
+    maxDiscount?: number | null;
+    startsAt?: Date | null;
+    endsAt?: Date | null;
+    isActive?: boolean;
+  }
+) {
+  return prisma.couponCampaign.update({
+    where: { id },
+    data: {
+      code: input.code ? input.code.trim().toUpperCase() : undefined,
+      name: input.name,
+      discountPct: input.discountPct,
+      minSubtotal: input.minSubtotal,
+      maxDiscount: input.maxDiscount,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      isActive: input.isActive,
+    },
+  });
+}
+
+export async function deleteCouponAdmin(id: string) {
+  return prisma.couponCampaign.update({
+    where: { id },
+    data: { isActive: false },
+  });
+}
+
 export async function listProductsAdmin(input: { page?: number; limit?: number; brandId?: string }) {
   const page = input.page && input.page > 0 ? input.page : 1;
   const limit = input.limit && input.limit > 0 ? input.limit : 20;
@@ -141,7 +206,7 @@ export async function listProductsAdmin(input: { page?: number; limit?: number; 
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       include: {
         brand: true,
         variants: true,
@@ -164,6 +229,7 @@ export async function createProduct(input: {
   name: string;
   description?: string;
   isPerishable: boolean;
+  isOutOfStock?: boolean;
   categoryIds?: string[];
   variants: Array<{
     name: string;
@@ -194,12 +260,19 @@ export async function createProduct(input: {
     }
   }
 
+  const maxSortOrder = await prisma.product.aggregate({
+    where: { brandId: input.brandId },
+    _max: { sortOrder: true },
+  });
+
   return prisma.product.create({
     data: {
       brandId: input.brandId,
       name: input.name,
       description: input.description,
+      sortOrder: (maxSortOrder._max.sortOrder ?? -1) + 1,
       isPerishable: input.isPerishable,
+      isOutOfStock: input.isOutOfStock ?? false,
       categories: input.categoryIds?.length
         ? { create: input.categoryIds.map((categoryId) => ({ categoryId })) }
         : undefined,
@@ -230,9 +303,11 @@ export async function updateProduct(id: string, input: {
   name?: string;
   description?: string;
   isPerishable?: boolean;
+  isOutOfStock?: boolean;
   isActive?: boolean;
   categoryIds?: string[];
   variants?: Array<{
+    id?: string;
     name: string;
     price: number | string;
     sku: string;
@@ -264,6 +339,7 @@ export async function updateProduct(id: string, input: {
         name: input.name,
         description: input.description,
         isPerishable: input.isPerishable,
+        isOutOfStock: input.isOutOfStock,
         isActive: input.isActive,
       },
     });
@@ -289,26 +365,56 @@ export async function updateProduct(id: string, input: {
     }
 
     if (input.variants) {
-      await tx.productVariant.deleteMany({ where: { productId: id } });
-      if (input.variants.length) {
-        await tx.productVariant.createMany({
-          data: input.variants.map((v) => ({
-            productId: id,
-            name: v.name,
-            price: v.price,
-            sku: v.sku,
-            unit: v.unit,
-            prepTimeMinutes: v.prepTimeMinutes,
-            cutoffTime: v.cutoffTime,
-            shelfLifeHours: v.shelfLifeHours,
-            availableDays: v.availableDays ?? [],
-            calories: v.calories,
-            proteinGrams: v.proteinGrams,
-            carbsGrams: v.carbsGrams,
-            fatGrams: v.fatGrams,
-          })),
-        });
+      const existingVariants = await tx.productVariant.findMany({
+        where: { productId: id },
+        select: { id: true },
+      });
+      const existingIds = new Set(existingVariants.map((variant) => variant.id));
+      const keepVariantIds: string[] = [];
+
+      for (const variant of input.variants) {
+        const variantData = {
+          name: variant.name,
+          price: variant.price,
+          sku: variant.sku,
+          unit: variant.unit,
+          prepTimeMinutes: variant.prepTimeMinutes,
+          cutoffTime: variant.cutoffTime,
+          shelfLifeHours: variant.shelfLifeHours,
+          availableDays: variant.availableDays ?? [],
+          calories: variant.calories,
+          proteinGrams: variant.proteinGrams,
+          carbsGrams: variant.carbsGrams,
+          fatGrams: variant.fatGrams,
+          isActive: true,
+        };
+
+        if (variant.id && existingIds.has(variant.id)) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
+            data: variantData,
+          });
+          keepVariantIds.push(variant.id);
+        } else {
+          const created = await tx.productVariant.create({
+            data: {
+              productId: id,
+              ...variantData,
+            },
+          });
+          keepVariantIds.push(created.id);
+        }
       }
+
+      await tx.productVariant.updateMany({
+        where: keepVariantIds.length
+          ? {
+              productId: id,
+              id: { notIn: keepVariantIds },
+            }
+          : { productId: id },
+        data: { isActive: false },
+      });
     }
 
     if (input.images) {
@@ -332,6 +438,43 @@ export async function deleteProduct(id: string) {
   return prisma.product.update({
     where: { id },
     data: { isActive: false },
+  });
+}
+
+export async function reorderProducts(input: { brandId: string; productIds: string[] }) {
+  if (!input.brandId) throw new Error('BRAND_ID_REQUIRED');
+  if (!Array.isArray(input.productIds) || !input.productIds.length) throw new Error('PRODUCT_IDS_REQUIRED');
+
+  const products = await prisma.product.findMany({
+    where: { brandId: input.brandId },
+    select: { id: true },
+  });
+  const existingIds = new Set(products.map((product) => product.id));
+  const invalidId = input.productIds.find((id) => !existingIds.has(id));
+  if (invalidId) throw new Error('PRODUCT_BRAND_MISMATCH');
+
+  await prisma.$transaction(
+    input.productIds.map((productId, index) =>
+      prisma.product.update({
+        where: { id: productId },
+        data: { sortOrder: index },
+      })
+    )
+  );
+
+  return prisma.product.findMany({
+    where: { brandId: input.brandId },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    include: {
+      brand: true,
+      variants: true,
+      images: true,
+      categories: {
+        include: {
+          category: true,
+        },
+      },
+    },
   });
 }
 

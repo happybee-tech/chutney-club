@@ -11,6 +11,7 @@ import {
   OrdersIcon,
   LogoutIcon,
   SurveyIcon,
+  CouponIcon,
 } from '@/components/admin/icons';
 
 type AdminShellProps = {
@@ -42,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/categories', label: 'Categories', Icon: CategoryIcon },
   { href: '/admin/products', label: 'Products', Icon: ProductIcon },
   { href: '/admin/orders', label: 'Orders', Icon: OrdersIcon },
+  { href: '/admin/coupons', label: 'Coupons', Icon: CouponIcon },
   { href: '/admin/surveys', label: 'Surveys', Icon: SurveyIcon },
 ];
 
@@ -70,13 +72,13 @@ export function AdminShell({ title, children }: AdminShellProps) {
 
         if (!mounted) return;
         if (!response.ok || !data.success) {
-          router.replace('/admin/login');
+          router.replace('/admin/logout');
           return;
         }
 
         setUser(data.data.user as AdminUser);
       } catch {
-        if (mounted) router.replace('/admin/login');
+        if (mounted) router.replace('/admin/logout');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -125,8 +127,7 @@ export function AdminShell({ title, children }: AdminShellProps) {
   }, [searchParams]);
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.replace('/admin/login');
+    router.replace('/admin/logout');
   }
 
   function toggleCollapsed() {

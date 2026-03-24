@@ -7,37 +7,36 @@ import { motion } from 'framer-motion';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/sections/Footer';
 import { MenuShowcaseSection } from '@/components/sections/MenuShowcaseSection';
-import { CartSidebar } from '@/components/cart/CartSidebar';
 
 const CORE_OFFERINGS = [
   {
-    title: 'High Protein Bowls',
-    subtitle: 'Engineered for satiety and recovery with sprouts, seeds, and balanced dressings.',
-    image: '/sprouts-mix.png',
+    title: 'High Protein Salads',
+    subtitle: 'Protein-forward salads built for satiety with sprouts, seeds, and balanced chutneys.',
+    image: '/high-protein-salads.png',
     className: 'lg:col-span-2 lg:row-span-2',
     heightClass: 'min-h-[280px] lg:min-h-[520px]',
     accent: '#9AD18B',
   },
   {
-    title: 'Cold-Pressed Juices',
-    subtitle: 'Farm-fresh smoothies and juices made in daily prep windows.',
-    image: '/smoothie-mix.png',
+    title: 'Fresh Drinks',
+    subtitle: 'Hydrating lemon and detox drinks prepared in daily small batches.',
+    image: '/lemon-drink.png',
     className: 'lg:col-span-1 lg:row-span-2',
     heightClass: 'min-h-[280px] lg:min-h-[520px]',
     accent: '#F4BA71',
   },
   {
-    title: 'Gut-Friendly',
-    subtitle: 'Fibre-forward bowls for easier digestion.',
-    image: '/gut-health.jpg',
+    title: 'Detox Drinks',
+    subtitle: 'Light, clean blends to support daytime energy and recovery.',
+    image: '/detox-drink.png',
     className: 'lg:col-span-1',
     heightClass: 'min-h-[240px]',
     accent: '#8CC0F2',
   },
   {
-    title: 'Detox Power',
-    subtitle: 'Hydrating and clean ingredients for steady energy.',
-    image: '/smoothie-mix-powder.jpg',
+    title: 'Smoothie Bowls',
+    subtitle: 'Nutrient-dense smoothie bowls with texture, fiber, and flavor.',
+    image: '/smoothie-bowl.png',
     className: 'lg:col-span-1',
     heightClass: 'min-h-[240px]',
     accent: '#D6B0FF',
@@ -135,7 +134,6 @@ export default function Home() {
   return (
     <main className="bg-[#F3ECE2] text-[#1F1E1B]">
       <Header scrolled={isScrolled} />
-      <CartSidebar />
 
       <section className="relative min-h-[92vh] overflow-hidden pb-20 pt-32">
         <div className="absolute inset-0">
@@ -150,7 +148,7 @@ export default function Home() {
             />
           ))}
           <div className="absolute inset-0 bg-[linear-gradient(105deg,rgba(21,20,18,0.68)_0%,rgba(21,20,18,0.46)_38%,rgba(21,20,18,0.22)_100%)]" />
-          <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-[#E67E22]/30 blur-3xl" />
+          <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-[#5B821F]/30 blur-3xl" />
           <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-[#98B69A]/30 blur-3xl" />
         </div>
 
@@ -172,13 +170,13 @@ export default function Home() {
               Too Hard.
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
-              Happybee brings fresh salads and functional nutrition from focused brands. Order once, or subscribe and stay consistent.
+              Chutney Club brings fresh salads and functional nutrition from focused brands. Order once, or subscribe and stay consistent.
             </p>
 
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 href="/daily-salads"
-                className="rounded-xl bg-[#E67E22] px-7 py-3 text-sm font-bold text-white shadow-[0_10px_25px_rgba(230,126,34,0.35)] transition hover:translate-y-[-2px]"
+                className="rounded-xl bg-[#5B821F] px-7 py-3 text-sm font-bold text-white shadow-[0_10px_25px_rgba(91,130,31,0.35)] transition hover:translate-y-[-2px]"
               >
                 View All Salads
               </Link>
@@ -192,7 +190,7 @@ export default function Home() {
 
       <MenuShowcaseSection />
 
-      <section id="value-proposition" className="px-4 py-20 sm:px-6 lg:px-8">
+      {/* <section id="value-proposition" className="px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -210,7 +208,7 @@ export default function Home() {
                 'Healthy options often miss either taste, timing, or macros.',
               ].map((line) => (
                 <div key={line} className="flex items-start gap-3 rounded-xl border border-[#E9D8C4] bg-white/70 px-4 py-3 text-sm text-[#5A4432]">
-                  <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#E67E22]/20 text-[#A0520E]">
+                  <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#5B821F]/20 text-[#A0520E]">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5">
                       <path d="M12 8v5" />
                       <path d="M12 16h.01" />
@@ -235,7 +233,7 @@ export default function Home() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {['Ready-to-eat daily bowls', 'Balanced protein + fibre', 'Cutoff-based fresh prep', 'Bangalore desk/home delivery'].map((line) => (
                 <div key={line} className="flex items-center gap-2 rounded-xl border border-white/22 bg-white/10 px-4 py-3 text-sm">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#E67E22]/25 text-[#FFD2A6]">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#5B821F]/25 text-[#FFD2A6]">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3">
                       <path d="M5 12l4 4L19 7" />
                     </svg>
@@ -246,7 +244,7 @@ export default function Home() {
             </div>
           </motion.div>
         </div>
-      </section>
+      </section> */}
 
       <section className="px-4 pb-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
@@ -356,7 +354,7 @@ export default function Home() {
                       {Array.from({ length: 3 }).map((_, level) => (
                         <span
                           key={level}
-                          className={`h-2.5 w-7 rounded-full ${level < profile.heat ? 'bg-[#E67E22]' : 'bg-[#E9DCCB]'}`}
+                          className={`h-2.5 w-7 rounded-full ${level < profile.heat ? 'bg-[#5B821F]' : 'bg-[#E9DCCB]'}`}
                         />
                       ))}
                     </div>
@@ -370,7 +368,7 @@ export default function Home() {
 
       <section className="px-4 pb-20 sm:px-6 lg:px-8">
         <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-[#E3D5C4] bg-[linear-gradient(160deg,#FFF8EF_0%,#F7EBDD_55%,#F3E2CF_100%)] p-8 shadow-[0_28px_70px_rgba(67,37,12,0.13)] md:p-10">
-          <div className="pointer-events-none absolute hidden h-48 w-48 rounded-full bg-[#E67E22]/20 blur-3xl md:block" />
+          <div className="pointer-events-none absolute hidden h-48 w-48 rounded-full bg-[#5B821F]/20 blur-3xl md:block" />
           <div className="pointer-events-none absolute right-16 top-20 hidden h-40 w-40 rounded-full bg-[#6E53A4]/25 blur-3xl md:block" />
           <div className="mb-8">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#8B836F]">The Chutney Club Difference</p>
@@ -414,7 +412,7 @@ export default function Home() {
                 </div>
                 <h3 className="mt-4 text-2xl font-black text-[#1B1915]">{card.title}</h3>
                 <p className="mt-3 text-sm leading-relaxed text-[#4E4A41]">{card.text}</p>
-                <div className="mt-5 h-1.5 w-24 rounded-full bg-[linear-gradient(90deg,#E67E22_0%,#4B2E83_100%)] transition-all duration-300 group-hover:w-36" />
+                <div className="mt-5 h-1.5 w-24 rounded-full bg-[linear-gradient(90deg,#5B821F_0%,#4B2E83_100%)] transition-all duration-300 group-hover:w-36" />
               </motion.article>
             ))}
           </div>
@@ -423,7 +421,7 @@ export default function Home() {
 
       <section className="px-4 pb-20 sm:px-6 lg:px-8">
         <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-[#6D548D] bg-[linear-gradient(145deg,#2A1F3F_0%,#4B2E83_40%,#7A4A2A_100%)] p-8 text-white shadow-[0_32px_76px_rgba(45,24,78,0.42)] md:p-10">
-          <div className="pointer-events-none absolute -left-10 top-6 h-48 w-48 rounded-full bg-[#E67E22]/35 blur-3xl" />
+          <div className="pointer-events-none absolute -left-10 top-6 h-48 w-48 rounded-full bg-[#5B821F]/35 blur-3xl" />
           <div className="pointer-events-none absolute right-6 top-0 h-56 w-56 rounded-full bg-[#9B84D3]/30 blur-3xl" />
 
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#E6DAFB]">Farm To Desk Journey</p>
@@ -438,7 +436,7 @@ export default function Home() {
               whileInView={{ scaleX: 1, opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="absolute left-8 right-8 top-8 hidden h-[2px] origin-left bg-[linear-gradient(90deg,#E67E22_0%,#D4C3FF_50%,#9AE18A_100%)] md:block"
+              className="absolute left-8 right-8 top-8 hidden h-[2px] origin-left bg-[linear-gradient(90deg,#5B821F_0%,#D4C3FF_50%,#9AE18A_100%)] md:block"
             />
             {JOURNEY_STEPS.map((step, index) => (
               <motion.article
@@ -451,9 +449,9 @@ export default function Home() {
                 className="relative rounded-2xl border border-white/22 bg-white/10 p-5 shadow-[0_14px_34px_rgba(8,7,14,0.28)] backdrop-blur-md"
               >
                 <motion.span
-                  animate={{ boxShadow: ['0 0 0 0 rgba(230,126,34,0.0)', '0 0 0 10px rgba(230,126,34,0.0)', '0 0 0 0 rgba(230,126,34,0.0)'] }}
+                  animate={{ boxShadow: ['0 0 0 0 rgba(91,130,31,0.0)', '0 0 0 10px rgba(91,130,31,0.0)', '0 0 0 0 rgba(91,130,31,0.0)'] }}
                   transition={{ duration: 2.2, repeat: Infinity, delay: index * 0.35 }}
-                  className="absolute -top-3 left-5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-[#E67E22]"
+                  className="absolute -top-3 left-5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-[#5B821F]"
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-white" />
                 </motion.span>
@@ -471,7 +469,7 @@ export default function Home() {
 
       <section className="px-4 pb-20 sm:px-6 lg:px-8">
         <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-[#E3D7C8] bg-[linear-gradient(165deg,#FFF9F2_0%,#F7EEE3_65%,#F3E9DD_100%)] p-8 text-[#2C241E] shadow-[0_24px_58px_rgba(81,52,21,0.12)] md:p-10">
-          <div className="pointer-events-none absolute -left-10 top-10 h-36 w-36 rounded-full bg-[#E67E22]/12 blur-3xl" />
+          <div className="pointer-events-none absolute -left-10 top-10 h-36 w-36 rounded-full bg-[#5B821F]/12 blur-3xl" />
           <div className="pointer-events-none absolute right-8 top-6 h-40 w-40 rounded-full bg-[#7E5AB3]/10 blur-3xl" />
 
           <div className="relative mb-6 flex items-end justify-between gap-4">

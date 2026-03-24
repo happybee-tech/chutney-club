@@ -10,13 +10,14 @@ export async function PATCH(request: Request, context: ProductRouteContext) {
   const { id } = await context.params;
 
   const body = await request.json();
-  const { name, description, is_perishable, is_active, category_ids, variants, images } = body;
+  const { name, description, is_perishable, is_out_of_stock, is_active, category_ids, variants, images } = body;
 
   try {
     const product = await updateProduct(id, {
       name,
       description,
       isPerishable: is_perishable,
+      isOutOfStock: is_out_of_stock,
       isActive: is_active,
       categoryIds: category_ids,
       variants,

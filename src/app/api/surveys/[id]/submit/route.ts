@@ -22,10 +22,17 @@ export async function POST(
   try {
     const { id: surveyId } = await params;
     const body = await request.json();
-    const { ratings } = body; 
+    const answers = Array.isArray(body?.answers)
+      ? body.answers
+      : Array.isArray(body?.ratings)
+        ? body.ratings.map((r: unknown) => {
+            const ratingInput = (r ?? {}) as Record<string, unknown>;
+            return { questionId: ratingInput.questionId, rating: ratingInput.rating };
+          })
+        : null;
 
-    if (!ratings || !Array.isArray(ratings)) {
-      return NextResponse.json({ error: 'Invalid ratings format' }, { status: 400 });
+    if (!answers || !Array.isArray(answers) || !answers.length) {
+      return NextResponse.json({ error: 'Invalid answers format' }, { status: 400 });
     }
 
     // Attempt to identify user
@@ -39,15 +46,35 @@ export async function POST(
        }
     }
 
+    if (userId) {
+      const existing = await prisma.surveyResponse.findFirst({
+        where: { surveyId, userId },
+        select: { id: true },
+      });
+      if (existing) {
+        return NextResponse.json(
+          { success: false, error: 'SURVEY_ALREADY_SUBMITTED' },
+          { status: 409 }
+        );
+      }
+    }
+
     const response = await prisma.surveyResponse.create({
       data: {
         surveyId,
         userId,
         answers: {
-          create: ratings.map((r: any) => ({
-             questionId: r.questionId,
-             rating: r.rating
-          }))
+          create: answers.map((raw: unknown) => {
+            const answer = (raw ?? {}) as Record<string, unknown>;
+            return {
+              questionId: answer.questionId,
+              rating: typeof answer.rating === 'number' ? answer.rating : null,
+              boolValue: typeof answer.boolValue === 'boolean' ? answer.boolValue : null,
+              textValue: typeof answer.textValue === 'string' ? answer.textValue : null,
+              optionValue: typeof answer.optionValue === 'string' ? answer.optionValue : null,
+              optionValues: Array.isArray(answer.optionValues) ? answer.optionValues : null,
+            };
+          })
         }
       }
     });

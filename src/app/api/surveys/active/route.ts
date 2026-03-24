@@ -18,15 +18,15 @@ function readTokenFromRequest(request: Request) {
 export async function GET(request: Request) {
   try {
     const token = readTokenFromRequest(request);
-    let isAuthenticated = false;
+    let authUserId: string | null = null;
     
     if (token) {
        const supabase = getSupabaseAnonClient();
        const { data: { user } } = await supabase.auth.getUser(token);
-       if (user) isAuthenticated = true;
+       if (user) authUserId = user.id;
     }
 
-    if (!isAuthenticated) {
+    if (!authUserId) {
       return NextResponse.json({ survey: null });
     }
 
@@ -46,6 +46,18 @@ export async function GET(request: Request) {
     });
 
     if (!activeSurvey) {
+      return NextResponse.json({ survey: null });
+    }
+
+    const alreadySubmitted = await prisma.surveyResponse.findFirst({
+      where: {
+        surveyId: activeSurvey.id,
+        userId: authUserId,
+      },
+      select: { id: true },
+    });
+
+    if (alreadySubmitted) {
       return NextResponse.json({ survey: null });
     }
 

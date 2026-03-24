@@ -25,7 +25,9 @@ export const metadata: Metadata = {
     type: 'website',
   },
   icons: {
-    icon: '/favicon.png',
+    icon: '/chutney-club-icon.png',
+    shortcut: '/chutney-club-icon.png',
+    apple: '/chutney-club-icon.png',
   },
 };
 

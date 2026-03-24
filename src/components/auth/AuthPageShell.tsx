@@ -15,7 +15,7 @@ export function AuthPageShell({ children, showTopBar = true }: AuthPageShellProp
       {showTopBar && (
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-6">
           <Link href="/" className="inline-flex items-center">
-            <Image src="/happybee-logo.png" alt="Happybee" width={132} height={66} priority />
+            <Image src="/chutney-club-logo.png" alt="Chutney Club" width={132} height={66} priority />
           </Link>
           <Link href="/" className="text-sm font-medium" style={{ color: COLORS.bodyText }}>
             Back to home

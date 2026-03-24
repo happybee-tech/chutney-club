@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   if (denied) return denied;
 
   const body = await request.json();
-  const { brand_id, name, description, is_perishable, category_ids, variants, images } = body;
+  const { brand_id, name, description, is_perishable, is_out_of_stock, category_ids, variants, images } = body;
 
   if (!brand_id || !name || typeof is_perishable !== 'boolean' || !Array.isArray(variants) || !variants.length) {
     return NextResponse.json(
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       name,
       description,
       isPerishable: is_perishable,
+      isOutOfStock: is_out_of_stock,
       categoryIds: category_ids,
       variants,
       images,

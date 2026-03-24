@@ -5,13 +5,33 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { addVariantToSingleCart } from '@/lib/cartClient';
-import { MENU_SHOWCASE_ITEMS } from '@/lib/menuShowcase';
 
 type CatalogProduct = {
+  id: string;
   name: string;
+  description: string | null;
   brandId: string;
+  isActive: boolean;
+  isOutOfStock: boolean;
   priceFrom: number | null;
-  defaultVariant: { id: string; price: number } | null;
+  image: string | null;
+  isPerishable: boolean;
+  categories: Array<{ id: string; name: string; slug: string }>;
+  defaultVariant: { id: string; price: number; name?: string; calories?: number | null } | null;
+};
+
+type CartItem = {
+  id: string;
+  qty: number;
+  variant: {
+    id: string;
+    name: string;
+    product: {
+      id: string;
+      name: string;
+      images?: Array<{ url: string }>;
+    };
+  };
 };
 
 type SectionProps = {
@@ -22,12 +42,13 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
     let mounted = true;
     const loadProducts = async () => {
       try {
-        const response = await fetch('/api/products?limit=50', { cache: 'no-store' });
+        const response = await fetch('/api/products?limit=50&include_inactive=true', { cache: 'no-store' });
         const data = await response.json();
         if (!mounted) return;
         if (response.ok && data?.success) {
@@ -43,42 +64,64 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
     };
   }, []);
 
-  const cards = useMemo(
-    () =>
-      MENU_SHOWCASE_ITEMS.map((item) => {
-        if (item.comingSoon) {
-          return { ...item, catalogMatch: null };
-        }
-        const normalizedLookups =
-          item.lookupNames?.map((name) => name.toLowerCase().replace(/\s+/g, ' ').trim()) ?? [];
-        const catalogMatch = catalogProducts.find((product) => {
-          const productName = product.name.toLowerCase().replace(/\s+/g, ' ').trim();
-          if (normalizedLookups.some((lookup) => productName === lookup)) return true;
-          if (normalizedLookups.some((lookup) => productName.includes(lookup))) return true;
-          return false;
-        });
-        return { ...item, catalogMatch: catalogMatch ?? null };
-      }),
-    [catalogProducts]
-  );
-  const visibleCards = useMemo(() => (fullPage ? cards : cards.slice(0, 3)), [cards, fullPage]);
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
 
-  const handleAddToCart = async (id: string) => {
-    const item = cards.find((card) => card.id === id);
-    if (!item || item.comingSoon) return;
-    if (!item.catalogMatch?.defaultVariant?.id) {
-      setMessage(`${item.name} is not mapped to a live product variant yet. Add/update this product in admin first.`);
+  const productBackedCards = useMemo(() => catalogProducts.filter((item) => item.defaultVariant?.id), [catalogProducts]);
+  const visibleCards = useMemo(
+    () => (fullPage ? productBackedCards : productBackedCards.slice(0, 3)),
+    [fullPage, productBackedCards]
+  );
+
+  const refreshCart = async () => {
+    const cartId = localStorage.getItem('hb_single_cart_id');
+    if (!cartId) {
+      setCartItems([]);
       return;
     }
 
-    setLoadingId(id);
+    const response = await fetch(`/api/cart/${cartId}`, {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      setCartItems([]);
+      return;
+    }
+    setCartItems((data.data?.items ?? []) as CartItem[]);
+  };
+
+  useEffect(() => {
+    refreshCart().catch(() => setCartItems([]));
+    const onCartUpdated = () => {
+      refreshCart().catch(() => setCartItems([]));
+    };
+    window.addEventListener('hb-cart-updated', onCartUpdated as EventListener);
+    return () => {
+      window.removeEventListener('hb-cart-updated', onCartUpdated as EventListener);
+    };
+  }, []);
+
+  const getCartItemForProduct = (productId: string) => {
+    return cartItems.find((cartItem) => cartItem.variant.product.id === productId) ?? null;
+  };
+
+  const handleAddToCart = async (product: CatalogProduct) => {
+    if (!product.defaultVariant?.id || !product.isActive || product.isOutOfStock) return;
+
+    setLoadingId(product.id);
     setMessage(null);
     try {
       await addVariantToSingleCart({
-        variantId: item.catalogMatch.defaultVariant.id,
-        brandId: item.catalogMatch.brandId,
+        variantId: product.defaultVariant.id,
+        brandId: product.brandId,
       });
-      setMessage(`${item.name} added to cart.`);
+      setMessage(`${product.name} added to cart.`);
+      await refreshCart();
     } catch (error: unknown) {
       const code = error instanceof Error ? error.message : '';
       if (code === 'UNAUTHORIZED') {
@@ -92,6 +135,39 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
     }
   };
 
+  const changeItemQty = async (product: CatalogProduct, nextQty: number) => {
+    const cartItem = getCartItemForProduct(product.id);
+    if (!cartItem) {
+      if (nextQty > 0) {
+        await handleAddToCart(product);
+      }
+      return;
+    }
+
+    setLoadingId(product.id);
+    try {
+      if (nextQty <= 0) {
+        await fetch(`/api/cart/items/${cartItem.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+      } else {
+        await fetch(`/api/cart/items/${cartItem.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ qty: nextQty }),
+        });
+      }
+      await refreshCart();
+      window.dispatchEvent(new CustomEvent('hb-cart-updated'));
+    } catch {
+      setMessage('Unable to update cart right now.');
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   return (
     <section className={fullPage ? 'px-4 pb-16 pt-28 sm:px-6 lg:px-8' : 'px-4 pb-24 pt-8 sm:px-6 lg:px-8'}>
       <div className="mx-auto max-w-7xl">
@@ -100,7 +176,7 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#8E6D4F]">Menu Preview</p>
             <h2 className="mt-2 text-4xl font-black tracking-tight text-[#1E1A15]">Today&apos;s Salad Menu</h2>
             <p className="mt-2 max-w-2xl text-sm text-[#5D4A38]">
-              Two salads are live now. More bowls are in prep and launching soon.
+              Order now and take the first step towards a healthier you!
             </p>
           </div>
           {!fullPage ? (
@@ -116,10 +192,19 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
           </div>
         ) : null}
 
-        <div className="mb-6 mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mb-2 mt-24 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {visibleCards.map((item, index) => {
-            const displayPrice = item.catalogMatch?.priceFrom ?? item.price;
-            const isDisabled = item.comingSoon || !item.catalogMatch?.defaultVariant?.id;
+            const displayPrice = item.priceFrom ?? item.defaultVariant?.price ?? 0;
+            const cartItem = getCartItemForProduct(item.id);
+            const isComingSoon = !item.isActive;
+            const isOutOfStock = item.isOutOfStock;
+            const tags = (item.categories?.map((category) => category.name) ?? []).slice(0, 4);
+            const tagStyles = [
+              'bg-[#FFE9D2] border-[#F3C28D] text-[#965012]',
+              'bg-[#E9F7E8] border-[#A9D9A4] text-[#2E6E2D]',
+              'bg-[#E8F0FF] border-[#B9CCF8] text-[#284B8F]',
+              'bg-[#F2EAFE] border-[#D1BCF9] text-[#5A3695]',
+            ];
             return (
               <motion.article
                 key={item.id}
@@ -127,59 +212,89 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.08 }}
                 viewport={{ once: true }}
-                className="relative overflow-visible rounded-[2rem] border border-white/50 bg-white/20 px-5 pb-5 pt-7 shadow-[0_20px_60px_rgba(33,19,12,0.18)] backdrop-blur-2xl"
+                className={`relative overflow-visible rounded-[2rem] border border-white/50 bg-white/20 px-5 pb-5 pt-7 shadow-[0_20px_60px_rgba(33,19,12,0.18)] backdrop-blur-2xl ${index > 0 ? 'mt-12 sm:mt-0' : ''}`}
               >
                 <div className="absolute -top-14 left-1/2 h-36 w-36 -translate-x-1/2 overflow-hidden rounded-full border-2 border-white/80 shadow-[0_14px_36px_rgba(0,0,0,0.24)] sm:h-40 sm:w-40">
-                  <Image src={item.image} alt={item.name} fill className="object-cover" />
+                  <Image src={item.image || '/community-default.png'} alt={item.name} fill className="object-cover" />
                 </div>
-
-                {item.comingSoon ? (
+                {isComingSoon ? (
                   <span className="absolute right-4 top-4 rounded-full border border-[#D5C5B3] bg-[#FFF4E7]/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8B5A2A]">
                     Coming Soon
                   </span>
                 ) : null}
+                {isOutOfStock && !isComingSoon ? (
+                  <span className="absolute right-4 top-4 rounded-full border border-[#C7D8AE] bg-[#EEF5E2]/95 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#4B6A1A]">
+                    Out of Stock
+                  </span>
+                ) : null}
 
-                <div className={`mt-28 sm:mt-32 ${item.comingSoon ? 'blur-[1.8px]' : ''}`}>
+                <div className="mt-20 sm:mt-24">
                   <h3 className="text-center text-2xl font-black text-[#1D1712]">{item.name}</h3>
-                  <p className="mt-1 text-center text-sm text-[#5D4B3C]">{item.subtitle}</p>
+                  <p className="mt-1 text-center text-sm text-[#5D4B3C]">{item.description || 'Freshly prepared salad bowl.'}</p>
 
                   <div className="mt-4 rounded-[1.4rem] border border-white/55 bg-white/35 p-4 backdrop-blur-xl">
                     <div className="mb-3 flex flex-wrap gap-2">
-                      {item.tags.map((tag) => (
-                        <span key={tag} className="rounded-full border border-[#DCC9B5] bg-white/75 px-3 py-1 text-[11px] font-semibold text-[#614936]">
+                      {tags.map((tag, tagIndex) => (
+                        <span
+                          key={tag}
+                          className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${tagStyles[tagIndex % tagStyles.length]}`}
+                        >
                           {tag}
                         </span>
                       ))}
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs text-[#4D3D30]">
-                      <div className="rounded-lg border border-[#E6D8CA] bg-white/70 px-3 py-2">
-                        <p className="text-[10px] uppercase tracking-[0.08em] text-[#8B6C4F]">Calories</p>
-                        <p className="font-bold">{item.calories} kcal</p>
-                      </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-[#4D3D30]">
                       <div className="rounded-lg border border-[#E6D8CA] bg-white/70 px-3 py-2">
                         <p className="text-[10px] uppercase tracking-[0.08em] text-[#8B6C4F]">Price</p>
                         <p className="font-bold">Rs {displayPrice}</p>
                       </div>
                       <div className="rounded-lg border border-[#E6D8CA] bg-white/70 px-3 py-2">
-                        <p className="text-[10px] uppercase tracking-[0.08em] text-[#8B6C4F]">Status</p>
-                        <p className="font-bold">{item.comingSoon ? 'Soon' : 'Live'}</p>
+                        <p className="text-[10px] uppercase tracking-[0.08em] text-[#8B6C4F]">Calories</p>
+                        <p className="font-bold">{item.defaultVariant?.calories ?? '-'} kcal</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleAddToCart(item.id)}
-                  disabled={isDisabled || loadingId === item.id}
-                  className="mt-4 w-full rounded-xl bg-[#E67E22] px-4 py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(230,126,34,0.35)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:bg-[#CCB29B]"
-                >
-                  {loadingId === item.id ? 'Adding...' : item.comingSoon ? 'Coming Soon' : 'Add to Cart'}
-                </button>
+                {cartItem && !isComingSoon && !isOutOfStock ? (
+                  <div className="mt-4 flex items-center justify-center gap-4 rounded-xl border border-[#E4D3C0] bg-white/75 px-4 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => changeItemQty(item, cartItem.qty - 1)}
+                      disabled={loadingId === item.id}
+                      className="h-8 w-8 rounded-full border border-[#DCC9B5] bg-white text-lg font-bold text-[#5A4534] disabled:opacity-60"
+                    >
+                      -
+                    </button>
+                    <span className="min-w-6 text-center text-sm font-bold text-[#2F241B]">{cartItem.qty}</span>
+                    <button
+                      type="button"
+                      onClick={() => changeItemQty(item, cartItem.qty + 1)}
+                      disabled={loadingId === item.id}
+                      className="h-8 w-8 rounded-full border border-[#DCC9B5] bg-white text-lg font-bold text-[#5A4534] disabled:opacity-60"
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleAddToCart(item)}
+                    disabled={loadingId === item.id || isComingSoon || isOutOfStock}
+                    className="mt-4 w-full rounded-xl bg-[#5B821F] px-4 py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(91,130,31,0.35)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:bg-[#CCB29B]"
+                  >
+                    {loadingId === item.id ? 'Adding...' : isComingSoon ? 'Coming Soon' : isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+                  </button>
+                )}
               </motion.article>
             );
           })}
         </div>
+        {!visibleCards.length ? (
+          <div className="rounded-2xl border border-[#E6D8C9] bg-white/70 px-5 py-8 text-center text-sm text-[#6A5440]">
+            No menu items are live yet. Add products and active variants from admin to display them here.
+          </div>
+        ) : null}
       </div>
     </section>
   );

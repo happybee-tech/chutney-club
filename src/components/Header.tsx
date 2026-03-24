@@ -5,15 +5,17 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { COLORS } from '@/lib/constants';
+import { CartSidebar } from '@/components/cart/CartSidebar';
 
 interface HeaderProps {
   scrolled?: boolean;
 }
 
 export function Header({ scrolled = false }: HeaderProps) {
-  const [cartCount] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
   const [userName, setUserName] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const headerTextColor = '#ffffff';
 
   useEffect(() => {
@@ -39,6 +41,54 @@ export function Header({ scrolled = false }: HeaderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCartCount = async () => {
+      try {
+        const cartId = localStorage.getItem('hb_single_cart_id');
+        if (!cartId) {
+          if (mounted) setCartCount(0);
+          return;
+        }
+        const response = await fetch(`/api/cart/${cartId}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!mounted) return;
+        if (!response.ok || !data?.success) {
+          setCartCount(0);
+          return;
+        }
+        const totalQty = (data.data?.items ?? []).reduce(
+          (sum: number, item: { qty: number }) => sum + Number(item.qty || 0),
+          0
+        );
+        setCartCount(totalQty);
+      } catch {
+        if (mounted) setCartCount(0);
+      }
+    };
+
+    const onCartUpdated = () => {
+      loadCartCount();
+    };
+    const onFocus = () => loadCartCount();
+
+    loadCartCount();
+    window.addEventListener('hb-cart-updated', onCartUpdated as EventListener);
+    window.addEventListener('storage', onCartUpdated);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('hb-cart-updated', onCartUpdated as EventListener);
+      window.removeEventListener('storage', onCartUpdated);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     setUserName(null);
@@ -56,7 +106,7 @@ export function Header({ scrolled = false }: HeaderProps) {
       transition={{ duration: 0.3 }}
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <motion.div
@@ -66,11 +116,11 @@ export function Header({ scrolled = false }: HeaderProps) {
             className="flex items-center gap-2 cursor-pointer"
           >
             <Image
-              src="/happybee-logo.png"
-              alt="Happybee"
-              width={150}
-              height={75}
-              className="rounded-full"
+              src="/chutney-club-logo.png"
+              alt="Chutney Club"
+              width={144}
+              height={64}
+              className="h-14 w-auto rounded-md"
               priority
             />
           </motion.div>
@@ -79,9 +129,8 @@ export function Header({ scrolled = false }: HeaderProps) {
           <nav className="hidden md:flex items-center gap-8">
             {[
               { label: 'Home', href: '/' },
-              { label: 'Daily Salads', href: '/daily-salads' },
-              { label: 'Subscriptions', href: '/subscriptions' },
-              { label: 'Make Your Salad', href: '/make-salad' },
+              { label: 'Menu', href: '/menu' },
+              { label: 'About', href: '/about' },
             ].map((link) => (
               <motion.div key={link.label}>
                 <Link
@@ -121,14 +170,14 @@ export function Header({ scrolled = false }: HeaderProps) {
                     <Link
                       href="/profile"
                       onClick={() => setMenuOpen(false)}
-                      className="block w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-orange-50"
+                      className="block w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-[#EEF5E2]"
                       style={{ color: COLORS.bodyText }}
                     >
                       Profile
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-orange-50"
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-[#EEF5E2]"
                       style={{ color: COLORS.primaryOrange }}
                     >
                       Logout
@@ -148,7 +197,7 @@ export function Header({ scrolled = false }: HeaderProps) {
                 <Link
                   href="/signup"
                   className="px-3 py-2 rounded-lg text-sm font-semibold"
-                  style={{ backgroundColor: '#E67E22', color: '#ffffff' }}
+                  style={{ backgroundColor: '#5B821F', color: '#ffffff' }}
                 >
                   Sign up
                 </Link>
@@ -159,23 +208,26 @@ export function Header({ scrolled = false }: HeaderProps) {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
-              className="relative p-2 rounded-lg hover:bg-white/50 transition-colors"
+              className="relative rounded-xl border border-white/40 bg-gradient-to-br from-white/20 to-white/5 p-2.5 shadow-[0_8px_20px_rgba(0,0,0,0.18)] transition-colors hover:from-white/30 hover:to-white/10"
+              onClick={() => setCartOpen(true)}
+              aria-label="Open cart"
             >
-              <span className="text-xl">🛒</span>
-              {cartCount > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                  style={{ backgroundColor: COLORS.primaryOrange }}
-                >
-                  {cartCount}
-                </motion.span>
-              )}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5 text-white">
+                <path d="M3 5h2l.4 2M7 13h10l3-6H6.4M7 13l-1.1 5h12.2M7 13H6.4M10 18a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm7 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" />
+              </svg>
+              <motion.span
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white"
+                style={{ backgroundColor: COLORS.primaryOrange }}
+              >
+                {cartCount}
+              </motion.span>
             </motion.button>
           </div>
         </div>
       </div>
+      <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} />
     </motion.header>
   );
 }

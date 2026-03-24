@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const { appUser } = await requireAuthenticatedUser(request);
     const body = await request.json();
-    const { cart_id, address_id, delivery_slot_id, community_id, location_id, coupon_code } = body;
+    const { cart_id, address_id, delivery_slot_id, community_id, location_id, coupon_code, fulfillment_type } = body;
 
     if (!cart_id) {
       return NextResponse.json(
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       communityId: community_id,
       locationId: location_id,
       couponCode: coupon_code,
+      fulfillmentType: fulfillment_type === 'delivery' ? 'delivery' : 'pickup',
     });
 
     if (!result.ok) {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
       success: true,
       data: {
         order_id: order.id,
+        order_no: order.orderNo,
         payment: {
           provider: payment.provider,
           provider_order_id: payment.providerOrderId,

@@ -13,8 +13,10 @@ type Product = {
   id: string;
   name: string;
   description?: string | null;
+  sortOrder?: number;
   isActive: boolean;
   isPerishable: boolean;
+  isOutOfStock?: boolean;
   brand: { id: string; name: string };
   variants: Array<{
     id: string;
@@ -36,6 +38,7 @@ type Product = {
 };
 
 type VariantInput = {
+  id?: string;
   sku: string;
   name: string;
   price: string;
@@ -60,6 +63,7 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [draggingProductId, setDraggingProductId] = useState<string | null>(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -69,6 +73,7 @@ export default function AdminProductsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPerishable, setIsPerishable] = useState(false);
+  const [isOutOfStock, setIsOutOfStock] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -213,6 +218,7 @@ export default function AdminProductsPage() {
     setName('');
     setDescription('');
     setIsPerishable(false);
+    setIsOutOfStock(false);
     setSelectedCategories([]);
     setUploadedImages([]);
     setUploadingImages(false);
@@ -244,6 +250,7 @@ export default function AdminProductsPage() {
     setName(product.name);
     setDescription(product.description ?? '');
     setIsPerishable(product.isPerishable);
+    setIsOutOfStock(Boolean(product.isOutOfStock));
     setUploadedImages(
       (product.images ?? [])
         .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -252,6 +259,7 @@ export default function AdminProductsPage() {
     setVariants(
       product.variants.length
         ? product.variants.map((v) => ({
+            id: v.id,
             sku: v.sku ?? '',
             name: v.name ?? '',
             price: String(v.price ?? ''),
@@ -334,6 +342,7 @@ export default function AdminProductsPage() {
       const cleanedVariants = variants
         .filter((v) => v.sku && v.name && v.price)
         .map((v) => ({
+          id: v.id,
           sku: v.sku,
           name: v.name,
           price: Number(v.price),
@@ -370,6 +379,7 @@ export default function AdminProductsPage() {
             name,
             description: description || undefined,
             is_perishable: isPerishable,
+            is_out_of_stock: isOutOfStock,
             category_ids: selectedCategories,
             variants: cleanedVariants,
             images: uploadedImages.map((img, index) => ({ url: img.url, sortOrder: index })),
@@ -390,6 +400,7 @@ export default function AdminProductsPage() {
             name,
             description: description || undefined,
             is_perishable: isPerishable,
+            is_out_of_stock: isOutOfStock,
             category_ids: selectedCategories,
             variants: cleanedVariants,
             images: uploadedImages.map((img, index) => ({ url: img.url, sortOrder: index })),
@@ -449,6 +460,51 @@ export default function AdminProductsPage() {
     }
   }
 
+  async function persistProductOrder(nextProducts: Product[]) {
+    if (!selectedBrandId) return;
+    const response = await fetch('/api/admin/products/reorder', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        brand_id: selectedBrandId,
+        product_ids: nextProducts.map((product) => product.id),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data?.error?.message ?? 'Failed to reorder products');
+    }
+    setProducts((data.data ?? []) as Product[]);
+  }
+
+  async function handleDropProduct(targetProductId: string) {
+    if (!draggingProductId || draggingProductId === targetProductId) {
+      setDraggingProductId(null);
+      return;
+    }
+
+    const current = [...products];
+    const fromIndex = current.findIndex((product) => product.id === draggingProductId);
+    const toIndex = current.findIndex((product) => product.id === targetProductId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggingProductId(null);
+      return;
+    }
+
+    const [moved] = current.splice(fromIndex, 1);
+    current.splice(toIndex, 0, moved);
+    setProducts(current);
+    setDraggingProductId(null);
+
+    try {
+      await persistProductOrder(current);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to reorder products');
+      fetchProducts(selectedBrandId);
+    }
+  }
+
   return (
     <AdminShell title="Products">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -481,6 +537,7 @@ export default function AdminProductsPage() {
         <table className="w-full min-w-[840px] text-left text-sm">
           <thead>
             <tr className="border-b border-[#E4E9FF] text-[#7A84AA]">
+              <th className="py-2">Order</th>
               <th className="py-2">Product</th>
               <th className="py-2">Brand</th>
               <th className="py-2">Perishable</th>
@@ -492,11 +549,20 @@ export default function AdminProductsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td className="py-4 text-[#7A84AA]" colSpan={6}>Loading products...</td>
+                <td className="py-4 text-[#7A84AA]" colSpan={7}>Loading products...</td>
               </tr>
             ) : (
               products.map((product) => (
-                <tr key={product.id} className="border-b border-[#EEF2FF] text-[#4E5778]">
+                <tr
+                  key={product.id}
+                  draggable
+                  onDragStart={() => setDraggingProductId(product.id)}
+                  onDragEnd={() => setDraggingProductId(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleDropProduct(product.id)}
+                  className={`border-b border-[#EEF2FF] text-[#4E5778] ${draggingProductId === product.id ? 'opacity-50' : ''}`}
+                >
+                  <td className="py-3 text-[#9AA3BE]" title="Drag to reorder">⋮⋮</td>
                   <td className="py-3 font-medium text-[#232B4A]">{product.name}</td>
                   <td className="py-3">{product.brand?.name ?? '-'}</td>
                   <td className="py-3">{product.isPerishable ? 'Yes' : 'No'}</td>
@@ -538,6 +604,7 @@ export default function AdminProductsPage() {
                 <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="w-full rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />
 
                 <label className="flex items-center gap-2 text-sm text-[#5B6587]"><input checked={isPerishable} onChange={(e) => setIsPerishable(e.target.checked)} type="checkbox" />Perishable product</label>
+                <label className="flex items-center gap-2 text-sm text-[#5B6587]"><input checked={isOutOfStock} onChange={(e) => setIsOutOfStock(e.target.checked)} type="checkbox" />Out of stock</label>
 
                 <div>
                   <label className="mb-1 block text-sm font-semibold text-[#4E5778]">Product Images</label>
@@ -612,8 +679,14 @@ export default function AdminProductsPage() {
                             </button>
                           </div>
                           <div className="grid gap-2 sm:grid-cols-2">
-                          <input value={variant.sku} onChange={(e) => setVariantField(index, 'sku', e.target.value)} placeholder="SKU" className="rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />
-                          <input value={variant.name} onChange={(e) => setVariantField(index, 'name', e.target.value)} placeholder="Variant name" className="rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold tracking-[0.08em] text-[#6C77A0] uppercase">SKU</label>
+                            <input value={variant.sku} onChange={(e) => setVariantField(index, 'sku', e.target.value)} placeholder="SKU" className="w-full rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold tracking-[0.08em] text-[#6C77A0] uppercase">Variant Name</label>
+                            <input value={variant.name} onChange={(e) => setVariantField(index, 'name', e.target.value)} placeholder="Variant name" className="w-full rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />
+                          </div>
                           <input value={variant.price} onChange={(e) => setVariantField(index, 'price', e.target.value)} type="number" min="0" placeholder="Price" className="rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />
                           <input value={variant.unit} onChange={(e) => setVariantField(index, 'unit', e.target.value)} placeholder="Unit (optional)" className="rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />
                           <input value={variant.prepTimeMinutes} onChange={(e) => setVariantField(index, 'prepTimeMinutes', e.target.value)} type="number" min="0" placeholder="Prep time (mins)" className="rounded-lg border border-[#D7DEF7] bg-white px-3 py-2 text-sm text-[#232B4A]" />

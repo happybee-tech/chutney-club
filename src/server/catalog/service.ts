@@ -11,6 +11,7 @@ export async function listProducts(params: {
   brandId?: string;
   categoryId?: string;
   isPerishable?: boolean;
+  includeInactive?: boolean;
   page?: number;
   limit?: number;
 }) {
@@ -19,7 +20,7 @@ export async function listProducts(params: {
   const skip = (page - 1) * limit;
 
   const where = {
-    isActive: true,
+    ...(params.includeInactive ? {} : { isActive: true }),
     ...(params.brandId ? { brandId: params.brandId } : {}),
     ...(typeof params.isPerishable === 'boolean' ? { isPerishable: params.isPerishable } : {}),
   } as const;
@@ -29,7 +30,7 @@ export async function listProducts(params: {
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       include: {
         variants: { where: { isActive: true } },
         images: true,
@@ -55,6 +56,7 @@ export async function listProducts(params: {
           id: activeVariants[0].id,
           name: activeVariants[0].name,
           price: Number(activeVariants[0].price),
+          calories: activeVariants[0].calories,
         }
       : null;
     return {
@@ -63,6 +65,8 @@ export async function listProducts(params: {
       name: item.name,
       description: item.description,
       isPerishable: item.isPerishable,
+      isActive: item.isActive,
+      isOutOfStock: item.isOutOfStock,
       priceFrom,
       defaultVariant,
       image: item.images.sort((a, b) => a.sortOrder - b.sortOrder)[0]?.url ?? null,

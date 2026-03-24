@@ -88,7 +88,7 @@ export function AuthCredentialsForm({ mode }: AuthCredentialsFormProps) {
 
         <div className="absolute left-4 top-4 z-20 md:left-8 md:top-8">
           <Link href="/" className="inline-flex items-center">
-            <Image src="/happybee-logo.png" alt="Happybee" width={140} height={70} priority />
+            <Image src="/chutney-club-logo.png" alt="Chutney Club" width={140} height={70} priority />
           </Link>
         </div>
 
@@ -146,7 +146,7 @@ export function AuthCredentialsForm({ mode }: AuthCredentialsFormProps) {
                 type="submit"
                 disabled={loading || (isSignup && countdown > 0)}
                 className="w-full rounded-xl py-3 font-semibold transition-opacity disabled:opacity-60"
-                style={{ backgroundColor: '#E67E22', color: '#ffffff' }}
+                style={{ backgroundColor: '#5B821F', color: '#ffffff' }}
               >
                 {loading
                   ? 'Please wait...'
