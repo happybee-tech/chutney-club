@@ -9,13 +9,13 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: 'Happybee - Healthy Food, Delivered to Your Community',
+  title: 'Chutney Club - Healthy Food, Delivered to Your Community',
   description:
-    'Order from trusted health brands. Preorder fresh food for weekend delivery to your community address. Happybee makes healthy eating intentional, calm, and community-focused.',
+    'Order from trusted health brands. Preorder fresh food for weekend delivery to your community address. Chutney Club makes healthy eating intentional, calm, and community-focused.',
   keywords:
     'healthy food, food preorder, community delivery, salads, sprouts, nut mixes, oils, health brands',
   openGraph: {
-    title: 'Happybee - Healthy Food, Delivered to Your Community',
+    title: 'Chutney Club - Healthy Food, Delivered to Your Community',
     description: 'Order from trusted health brands. Preorder fresh food for weekend delivery.',
     type: 'website',
   },
