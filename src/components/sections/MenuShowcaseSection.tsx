@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { addVariantToSingleCart } from '@/lib/cartClient';
+import { getLocalCartItems, updateLocalCartItemQty } from '@/lib/localCart';
 
 type CatalogProduct = {
   id: string;
@@ -20,18 +21,10 @@ type CatalogProduct = {
   defaultVariant: { id: string; price: number; name?: string; calories?: number | null } | null;
 };
 
-type CartItem = {
-  id: string;
+type LocalCartItem = {
+  variantId: string;
+  productId: string;
   qty: number;
-  variant: {
-    id: string;
-    name: string;
-    product: {
-      id: string;
-      name: string;
-      images?: Array<{ url: string }>;
-    };
-  };
 };
 
 type SectionProps = {
@@ -40,9 +33,9 @@ type SectionProps = {
 
 export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [cartLoading, setCartLoading] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<LocalCartItem[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -64,12 +57,6 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!message) return;
-    const timer = window.setTimeout(() => setMessage(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [message]);
-
   const productBackedCards = useMemo(() => catalogProducts.filter((item) => item.defaultVariant?.id), [catalogProducts]);
   const visibleCards = useMemo(
     () => (fullPage ? productBackedCards : productBackedCards.slice(0, 3)),
@@ -77,27 +64,25 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
   );
 
   const refreshCart = async () => {
-    const cartId = localStorage.getItem('hb_single_cart_id');
-    if (!cartId) {
-      setCartItems([]);
-      return;
+    setCartLoading(true);
+    try {
+      setCartItems(
+        getLocalCartItems().map((item) => ({
+          variantId: item.variantId,
+          productId: item.productId,
+          qty: item.qty,
+        }))
+      );
+    } finally {
+      setCartLoading(false);
     }
-
-    const response = await fetch(`/api/cart/${cartId}`, {
-      credentials: 'include',
-      cache: 'no-store',
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data?.success) {
-      setCartItems([]);
-      return;
-    }
-    setCartItems((data.data?.items ?? []) as CartItem[]);
   };
 
   useEffect(() => {
     refreshCart().catch(() => setCartItems([]));
-    const onCartUpdated = () => {
+    const onCartUpdated = (event?: Event) => {
+      const detail = (event as CustomEvent<{ source?: string }> | undefined)?.detail;
+      if (detail?.source === 'menu-showcase') return;
       refreshCart().catch(() => setCartItems([]));
     };
     window.addEventListener('hb-cart-updated', onCartUpdated as EventListener);
@@ -107,21 +92,23 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
   }, []);
 
   const getCartItemForProduct = (productId: string) => {
-    return cartItems.find((cartItem) => cartItem.variant.product.id === productId) ?? null;
+    return cartItems.find((cartItem) => cartItem.productId === productId) ?? null;
   };
 
   const handleAddToCart = async (product: CatalogProduct) => {
     if (!product.defaultVariant?.id || !product.isActive || product.isOutOfStock) return;
 
     setLoadingId(product.id);
-    setMessage(null);
     try {
       await addVariantToSingleCart({
         variantId: product.defaultVariant.id,
+        productId: product.id,
+        productName: product.name,
+        variantName: product.defaultVariant.name || 'Default',
+        price: Number(product.defaultVariant.price ?? product.priceFrom ?? 0),
+        imageUrl: product.image,
         brandId: product.brandId,
       });
-      setMessage(`${product.name} added to cart.`);
-      await refreshCart();
     } catch (error: unknown) {
       const code = error instanceof Error ? error.message : '';
       if (code === 'UNAUTHORIZED') {
@@ -129,7 +116,6 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
         window.location.href = `/signin?next=${encodeURIComponent(next)}`;
         return;
       }
-      setMessage('Unable to add item to cart right now.');
     } finally {
       setLoadingId(null);
     }
@@ -146,23 +132,7 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
 
     setLoadingId(product.id);
     try {
-      if (nextQty <= 0) {
-        await fetch(`/api/cart/items/${cartItem.id}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
-      } else {
-        await fetch(`/api/cart/items/${cartItem.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ qty: nextQty }),
-        });
-      }
-      await refreshCart();
-      window.dispatchEvent(new CustomEvent('hb-cart-updated'));
-    } catch {
-      setMessage('Unable to update cart right now.');
+      updateLocalCartItemQty(cartItem.variantId, nextQty);
     } finally {
       setLoadingId(null);
     }
@@ -186,9 +156,10 @@ export function MenuShowcaseSection({ fullPage = false }: SectionProps) {
           ) : null}
         </div>
 
-        {message ? (
-          <div className="mb-5 rounded-xl border border-[#E4D6C7] bg-white/70 px-4 py-2 text-sm text-[#3E2E22] backdrop-blur">
-            {message}
+        {cartLoading ? (
+          <div className="mb-5 flex items-center gap-2 rounded-xl border border-[#E4D6C7] bg-white/70 px-4 py-2 text-sm text-[#3E2E22] backdrop-blur">
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#5B821F] border-t-transparent" />
+            Loading cart...
           </div>
         ) : null}
 

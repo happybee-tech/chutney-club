@@ -17,7 +17,13 @@
   input[type='submit'],
   input[type='reset'],
   summary {
-    cursor: pointer;
+    cursor: pointer !important;
+  }
+
+  button:disabled,
+  [aria-disabled='true'],
+  input:disabled {
+    cursor: not-allowed !important;
   }
 }
 

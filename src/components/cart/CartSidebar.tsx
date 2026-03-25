@@ -1,38 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getLocalCartItems, updateLocalCartItemQty } from '@/lib/localCart';
 
-const CART_KEY = 'hb_single_cart_id';
 const COUPON_KEY = 'hb_cart_coupon';
 
-type CartItem = {
-  id: string;
+type LocalCartItem = {
+  variantId: string;
+  productId: string;
+  productName: string;
+  variantName: string;
+  price: number;
   qty: number;
-  priceSnapshot: string | number;
-  variant: {
-    id: string;
-    name: string;
-    product: {
-      id: string;
-      name: string;
-      images?: Array<{ url: string }>;
-    };
-  };
-};
-
-type CartData = {
-  id: string;
-  items: CartItem[];
-};
-
-type ValidateSummary = {
-  subtotal: number;
-  discount: number;
-  total: number;
-  coupon?: { code: string | null; valid: boolean; discount: number; message: string | null };
+  brandId: string;
+  imageUrl?: string | null;
 };
 
 type AvailableCoupon = {
@@ -50,40 +34,34 @@ type CartSidebarProps = {
 };
 
 export function CartSidebar({ open, onClose }: CartSidebarProps) {
-  const [cartId, setCartId] = useState<string | null>(() =>
-    typeof window === 'undefined' ? null : localStorage.getItem(CART_KEY)
-  );
-  const [cart, setCart] = useState<CartData | null>(null);
+  const [items, setItems] = useState<LocalCartItem[]>([]);
   const [couponCode, setCouponCode] = useState(() =>
     typeof window === 'undefined' ? '' : localStorage.getItem(COUPON_KEY) ?? ''
   );
   const [appliedCoupon, setAppliedCoupon] = useState(() =>
     typeof window === 'undefined' ? '' : localStorage.getItem(COUPON_KEY) ?? ''
   );
-  const [summary, setSummary] = useState<ValidateSummary | null>(null);
   const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [couponsLoaded, setCouponsLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const handleCartUpdate = () => {
-      const nextCartId = localStorage.getItem(CART_KEY);
-      setCartId(nextCartId);
-      if (!nextCartId) {
-        setCart(null);
-        setSummary(null);
-      }
+    const syncItems = () => {
+      setItems(getLocalCartItems() as LocalCartItem[]);
     };
-
-    window.addEventListener('hb-cart-updated', handleCartUpdate as EventListener);
-    window.addEventListener('storage', handleCartUpdate);
+    syncItems();
+    if (!open) return;
+    const onCartUpdated = () => syncItems();
+    window.addEventListener('hb-cart-updated', onCartUpdated as EventListener);
+    window.addEventListener('storage', onCartUpdated);
     return () => {
-      window.removeEventListener('hb-cart-updated', handleCartUpdate as EventListener);
-      window.removeEventListener('storage', handleCartUpdate);
+      window.removeEventListener('hb-cart-updated', onCartUpdated as EventListener);
+      window.removeEventListener('storage', onCartUpdated);
     };
-  }, []);
+  }, [open]);
 
   useEffect(() => {
+    if (!open || couponsLoaded) return;
     fetch('/api/coupons', { credentials: 'include', cache: 'no-store' })
       .then((response) => response.json())
       .then((data) => {
@@ -91,61 +69,9 @@ export function CartSidebar({ open, onClose }: CartSidebarProps) {
           setAvailableCoupons((data.data ?? []) as AvailableCoupon[]);
         }
       })
-      .catch(() => setAvailableCoupons([]));
-  }, []);
-
-  const loadCart = useCallback(
-    async (currentCartId: string, coupon?: string) => {
-      const response = await fetch(`/api/cart/${currentCartId}`, { credentials: 'include', cache: 'no-store' });
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok || !data?.success) {
-        setCart(null);
-        return;
-      }
-      setCart(data.data as CartData);
-
-      const validate = await fetch('/api/cart/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ cart_id: currentCartId, coupon_code: coupon || undefined }),
-      });
-      const validationData = await validate.json().catch(() => ({}));
-      if (validate.ok && validationData?.success) {
-        setSummary(validationData.data?.summary ?? null);
-        if (validationData.data?.summary?.coupon?.valid) {
-          setMessage(`Coupon ${validationData.data.summary.coupon.code} applied`);
-        } else if (coupon && validationData.data?.summary?.coupon?.message) {
-          setMessage(validationData.data.summary.coupon.message);
-        }
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (!cartId) return;
-    Promise.resolve()
-      .then(() => loadCart(cartId, appliedCoupon))
-      .catch(() => setCart(null));
-  }, [cartId, appliedCoupon, loadCart]);
-
-  useEffect(() => {
-    if (!open) return;
-    Promise.resolve()
-      .then(async () => {
-        const latestCartId = localStorage.getItem(CART_KEY);
-        setCartId(latestCartId);
-        if (!latestCartId) {
-          setCart(null);
-          setSummary(null);
-          return;
-        }
-        await loadCart(latestCartId, appliedCoupon);
-      })
-      .catch(() => setCart(null));
-  }, [open, appliedCoupon, loadCart]);
+      .catch(() => setAvailableCoupons([]))
+      .finally(() => setCouponsLoaded(true));
+  }, [open, couponsLoaded]);
 
   useEffect(() => {
     if (!open) return;
@@ -157,44 +83,32 @@ export function CartSidebar({ open, onClose }: CartSidebarProps) {
   }, [open]);
 
   const rawSubtotal = useMemo(() => {
-    if (!cart?.items?.length) return 0;
-    return cart.items.reduce((sum, item) => sum + Number(item.priceSnapshot) * item.qty, 0);
-  }, [cart]);
+    if (!items.length) return 0;
+    return items.reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
+  }, [items]);
 
-  const totals = useMemo(() => {
-    if (!summary) {
-      return { subtotal: rawSubtotal, discount: 0, total: rawSubtotal };
+  const appliedCouponInfo = useMemo(() => {
+    if (!appliedCoupon) return null;
+    const code = appliedCoupon.trim().toUpperCase();
+    return availableCoupons.find((coupon) => coupon.code.toUpperCase() === code) ?? null;
+  }, [appliedCoupon, availableCoupons]);
+
+  const discount = useMemo(() => {
+    if (!appliedCouponInfo) return 0;
+    if (rawSubtotal < Number(appliedCouponInfo.minSubtotal || 0)) return 0;
+    const calc = (rawSubtotal * Number(appliedCouponInfo.discountPct || 0)) / 100;
+    if (appliedCouponInfo.maxDiscount && appliedCouponInfo.maxDiscount > 0) {
+      return Math.min(calc, Number(appliedCouponInfo.maxDiscount));
     }
-    return summary;
-  }, [rawSubtotal, summary]);
+    return calc;
+  }, [appliedCouponInfo, rawSubtotal]);
 
-  const updateQty = async (itemId: string, nextQty: number) => {
-    if (!cartId) return;
-    if (nextQty <= 0) {
-      await removeItem(itemId);
-      return;
-    }
-    setLoading(true);
-    await fetch(`/api/cart/items/${itemId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ qty: nextQty }),
-    });
-    await loadCart(cartId, appliedCoupon);
-    window.dispatchEvent(new CustomEvent('hb-cart-updated', { detail: { cartId } }));
-    setLoading(false);
-  };
+  const total = Math.max(rawSubtotal - discount, 0);
 
-  const removeItem = async (itemId: string) => {
-    if (!cartId) return;
+  const updateQty = async (variantId: string, nextQty: number) => {
     setLoading(true);
-    await fetch(`/api/cart/items/${itemId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    await loadCart(cartId, appliedCoupon);
-    window.dispatchEvent(new CustomEvent('hb-cart-updated', { detail: { cartId } }));
+    updateLocalCartItemQty(variantId, nextQty);
+    setItems(getLocalCartItems() as LocalCartItem[]);
     setLoading(false);
   };
 
@@ -202,23 +116,17 @@ export function CartSidebar({ open, onClose }: CartSidebarProps) {
     const normalized = couponCode.trim().toUpperCase();
     localStorage.setItem(COUPON_KEY, normalized);
     setAppliedCoupon(normalized);
-    if (!cartId) return;
-    setLoading(true);
-    await loadCart(cartId, normalized);
-    setLoading(false);
   };
 
   const applyCouponCode = async (code: string) => {
     setCouponCode(code);
     localStorage.setItem(COUPON_KEY, code);
     setAppliedCoupon(code);
-    if (!cartId) return;
-    setLoading(true);
-    await loadCart(cartId, code);
-    setLoading(false);
   };
 
   if (typeof document === 'undefined') return null;
+
+  const cartEmpty = !items.length;
 
   return createPortal(
     <>
@@ -234,38 +142,45 @@ export function CartSidebar({ open, onClose }: CartSidebarProps) {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-black text-[#2A1E15]">Your Cart</h3>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-[#7A624F]">{cart?.items?.length ?? 0} items</span>
+            <span className="text-xs font-semibold text-[#7A624F]">{items.length} items</span>
             <button type="button" onClick={onClose} className="rounded-lg border border-[#DDCCBA] bg-white px-2 py-1 text-sm">
               ✕
             </button>
           </div>
         </div>
 
-        {!cartId || !cart?.items?.length ? (
+        {loading ? (
+          <div className="rounded-xl border border-[#E5D7C7] bg-white/70 px-3 py-5 text-sm text-[#6A5441]">
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#5B821F] border-t-transparent" />
+              Loading cart...
+            </div>
+          </div>
+        ) : cartEmpty ? (
           <p className="rounded-xl border border-[#E5D7C7] bg-white/70 px-3 py-4 text-sm text-[#6A5441]">Cart is empty.</p>
         ) : (
           <div className="space-y-3">
             <div className="max-h-[52vh] space-y-2 overflow-auto pr-1">
-              {cart.items.map((item) => {
-                const image = item.variant.product.images?.[0]?.url || '/community-default.png';
-                const price = Number(item.priceSnapshot);
+              {items.map((item) => {
+                const image = item.imageUrl || '/community-default.png';
+                const price = Number(item.price);
                 return (
-                  <article key={item.id} className="rounded-2xl border border-[#E8DBCE] bg-white/80 p-2.5">
+                  <article key={item.variantId} className="rounded-2xl border border-[#E8DBCE] bg-white/80 p-2.5">
                     <div className="flex gap-3">
                       <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-[#E5D8C9]">
-                        <Image src={image} alt={item.variant.product.name} fill className="object-cover" />
+                        <Image src={image} alt={item.productName} fill className="object-cover" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-[#2B2018]">{item.variant.product.name}</p>
-                        <p className="truncate text-xs text-[#6F5A48]">{item.variant.name}</p>
+                        <p className="truncate text-sm font-semibold text-[#2B2018]">{item.productName}</p>
+                        <p className="truncate text-xs text-[#6F5A48]">{item.variantName}</p>
                         <div className="mt-1 flex items-center justify-between">
                           <p className="text-sm font-bold text-[#5B821F]">Rs {price}</p>
                           <div className="inline-flex items-center rounded-full border border-[#E5D8C9] bg-white">
-                            <button type="button" onClick={() => updateQty(item.id, item.qty - 1)} className="px-2 py-0.5 text-sm text-[#5A4534]" disabled={loading}>
+                            <button type="button" onClick={() => updateQty(item.variantId, item.qty - 1)} className="px-2 py-0.5 text-sm text-[#5A4534]" disabled={loading}>
                               −
                             </button>
                             <span className="px-2 text-xs font-semibold">{item.qty}</span>
-                            <button type="button" onClick={() => updateQty(item.id, item.qty + 1)} className="px-2 py-0.5 text-sm text-[#5A4534]" disabled={loading}>
+                            <button type="button" onClick={() => updateQty(item.variantId, item.qty + 1)} className="px-2 py-0.5 text-sm text-[#5A4534]" disabled={loading}>
                               +
                             </button>
                           </div>
@@ -293,7 +208,6 @@ export function CartSidebar({ open, onClose }: CartSidebarProps) {
                   Apply
                 </button>
               </div>
-              {message ? <p className="mt-2 text-xs text-[#6A5543]">{message}</p> : null}
               {availableCoupons.length ? (
                 <div className="mt-3 space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7C6551]">Available Offers</p>
@@ -316,19 +230,19 @@ export function CartSidebar({ open, onClose }: CartSidebarProps) {
             <div className="rounded-2xl border border-[#E8DBCE] bg-white/80 p-3 text-sm">
               <div className="flex justify-between py-1 text-[#5A4533]">
                 <span>Subtotal</span>
-                <span>Rs {totals.subtotal.toFixed(2)}</span>
+                <span>Rs {rawSubtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between py-1 text-[#5A4533]">
                 <span>Discount</span>
-                <span>- Rs {totals.discount.toFixed(2)}</span>
+                <span>- Rs {discount.toFixed(2)}</span>
               </div>
               <div className="mt-1 flex justify-between border-t border-[#E6D8C9] pt-2 font-bold text-[#2A1D14]">
                 <span>Total</span>
-                <span>Rs {totals.total.toFixed(2)}</span>
+                <span>Rs {total.toFixed(2)}</span>
               </div>
             </div>
 
-            <Link href={`/checkout?cart_id=${cartId}`} onClick={onClose} className="block rounded-xl bg-[#5B821F] px-4 py-3 text-center text-sm font-bold text-white shadow-[0_12px_26px_rgba(91,130,31,0.33)]">
+            <Link href="/checkout" onClick={onClose} className="block rounded-xl bg-[#5B821F] px-4 py-3 text-center text-sm font-bold text-white shadow-[0_12px_26px_rgba(91,130,31,0.33)]">
               Go To Checkout
             </Link>
           </div>

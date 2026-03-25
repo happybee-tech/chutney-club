@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/sections/Footer';
 import { SurveyModal } from '@/components/survey/SurveyModal';
+import { clearLocalCart, getLocalCartItems } from '@/lib/localCart';
 
 const CART_KEY = 'hb_single_cart_id';
 const COUPON_KEY = 'hb_cart_coupon';
@@ -60,7 +61,7 @@ type ActiveSurvey = {
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
-  const [cartId] = useState<string | null>(() => {
+  const [cartId, setCartId] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     const queryCartId = new URLSearchParams(window.location.search).get('cart_id');
     return queryCartId || localStorage.getItem(CART_KEY);
@@ -80,8 +81,38 @@ export default function CheckoutPage() {
   const [activeSurvey, setActiveSurvey] = useState<ActiveSurvey | null>(null);
   const [surveyOpen, setSurveyOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(true);
 
-  const loadCheckoutData = async (targetCartId: string, coupon: string) => {
+  const syncLocalCartToServer = async () => {
+    const localItems = getLocalCartItems();
+    const response = await fetch('/api/cart/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        items: localItems.map((item) => ({ variant_id: item.variantId, qty: item.qty })),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      const next = `${window.location.pathname}${window.location.search}`;
+      window.location.href = `/signin?next=${encodeURIComponent(next)}`;
+      throw new Error('Please sign in to continue.');
+    }
+    if (!response.ok || !data?.success || !data?.data?.id) {
+      throw new Error(data?.error?.message ?? 'Unable to sync cart');
+    }
+    const nextCartId = data.data.id as string;
+    localStorage.setItem(CART_KEY, nextCartId);
+    setCartId(nextCartId);
+    if (Number(data?.data?.dropped_count || 0) > 0) {
+      setMessage('Some unavailable items were removed from your cart.');
+    }
+    return nextCartId;
+  };
+
+  const loadCheckoutData = useCallback(async (targetCartId: string, coupon: string) => {
+    setCheckoutLoading(true);
     const [cartRes, addressRes, validateRes] = await Promise.all([
       fetch(`/api/cart/${targetCartId}`, { credentials: 'include', cache: 'no-store' }),
       fetch('/api/addresses', { credentials: 'include', cache: 'no-store' }),
@@ -112,15 +143,60 @@ export default function CheckoutPage() {
         setMessage(validateJson.data.summary.coupon.message);
       }
     }
-  };
+    setCheckoutLoading(false);
+  }, []);
+
+  const refreshCheckoutData = useCallback(async (options?: { silent?: boolean }) => {
+    const queryCartId = searchParams.get('cart_id');
+    const localItems = getLocalCartItems();
+    const existingCartId = queryCartId || localStorage.getItem(CART_KEY) || cartId;
+    let resolvedCartId = existingCartId;
+
+    if (localItems.length > 0) {
+      try {
+        resolvedCartId = await syncLocalCartToServer();
+      } catch (error) {
+        if (!resolvedCartId) {
+          throw error;
+        }
+      }
+    }
+    if (!resolvedCartId) {
+      setItems([]);
+      setSummary(null);
+      setCheckoutLoading(false);
+      return;
+    }
+    if (!options?.silent) {
+      setMessage(null);
+    }
+    await loadCheckoutData(resolvedCartId, couponCode);
+  }, [searchParams, cartId, couponCode, loadCheckoutData]);
 
   useEffect(() => {
-    const resolvedCartId = searchParams.get('cart_id') || cartId;
-    if (!resolvedCartId) return;
     Promise.resolve()
-      .then(() => loadCheckoutData(resolvedCartId, couponCode))
-      .catch(() => setMessage('Failed to load checkout data'));
-  }, [searchParams, cartId, couponCode]);
+      .then(() => refreshCheckoutData({ silent: false }))
+      .catch(() => {
+        setMessage('Failed to load checkout data');
+        setCheckoutLoading(false);
+      });
+  }, [refreshCheckoutData]);
+
+  useEffect(() => {
+    const onCartUpdated = () => {
+      Promise.resolve()
+        .then(() => refreshCheckoutData({ silent: true }))
+        .catch(() => {
+          // Avoid noisy error on cart edits; keep current checkout state.
+          setCheckoutLoading(false);
+        });
+    };
+
+    window.addEventListener('hb-cart-updated', onCartUpdated as EventListener);
+    return () => {
+      window.removeEventListener('hb-cart-updated', onCartUpdated as EventListener);
+    };
+  }, [refreshCheckoutData]);
 
   const rawSubtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.priceSnapshot) * item.qty, 0),
@@ -129,16 +205,31 @@ export default function CheckoutPage() {
   const totals = summary ?? { subtotal: rawSubtotal, discount: 0, total: rawSubtotal };
 
   const handlePlaceOrder = async () => {
-    if (!cartId) return;
     setSubmitting(true);
     setMessage(null);
+
+    let resolvedCartId = cartId;
+    if (getLocalCartItems().length > 0) {
+      try {
+        resolvedCartId = await syncLocalCartToServer();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Unable to sync cart');
+        setSubmitting(false);
+        return;
+      }
+    }
+    if (!resolvedCartId) {
+      setMessage('Cart is empty');
+      setSubmitting(false);
+      return;
+    }
 
     const response = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        cart_id: cartId,
+        cart_id: resolvedCartId,
         coupon_code: couponCode || undefined,
         fulfillment_type: 'pickup',
       }),
@@ -159,6 +250,7 @@ export default function CheckoutPage() {
     setPaymentRef('');
     setProofFile(null);
     localStorage.removeItem(CART_KEY);
+    clearLocalCart();
     setSubmitting(false);
   };
 
@@ -258,62 +350,69 @@ export default function CheckoutPage() {
         <div className="space-y-4">
           <div className="rounded-3xl border border-[#E5D8C8] bg-white/80 p-4 shadow-[0_16px_40px_rgba(29,21,14,0.08)] backdrop-blur">
             <h2 className="mb-3 text-xl font-black text-[#2A1D14]">Order Summary</h2>
-            <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
-              {items.map((item) => {
-                const image = item.variant.product.images?.[0]?.url || '/community-default.png';
-                return (
-                  <article key={item.id} className="flex gap-3 rounded-2xl border border-[#E8DBCE] bg-white p-2.5">
-                    <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-[#E5D8C9]">
-                      <Image src={image} alt={item.variant.product.name} fill className="object-cover" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#2B2018]">{item.variant.product.name}</p>
-                      <p className="truncate text-xs text-[#6F5A48]">{item.variant.name}</p>
-                      <p className="mt-1 text-xs text-[#5A4533]">
-                        Qty {item.qty} • Rs {Number(item.priceSnapshot)}
-                      </p>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-[#E8DBCE] bg-white p-3 text-sm">
-              <div className="flex justify-between py-1 text-[#5A4533]">
-                <span>Subtotal</span>
-                <span>Rs {totals.subtotal.toFixed(2)}</span>
+            {checkoutLoading ? (
+              <div className="flex items-center gap-2 rounded-2xl border border-[#E8DBCE] bg-white p-4 text-sm text-[#6A5440]">
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#5B821F] border-t-transparent" />
+                Loading order summary...
               </div>
-              <div className="flex justify-between py-1 text-[#5A4533]">
-                <span>Discount</span>
-                <span>- Rs {totals.discount.toFixed(2)}</span>
+            ) : (
+              <div className="max-h-[360px] space-y-2 overflow-auto pr-1">
+                {items.map((item) => {
+                  const image = item.variant.product.images?.[0]?.url || '/community-default.png';
+                  return (
+                    <article key={item.id} className="flex gap-3 rounded-2xl border border-[#E8DBCE] bg-white p-2.5">
+                      <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-[#E5D8C9]">
+                        <Image src={image} alt={item.variant.product.name} fill className="object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#2B2018]">{item.variant.product.name}</p>
+                        <p className="truncate text-xs text-[#6F5A48]">{item.variant.name}</p>
+                        <p className="mt-1 text-xs text-[#5A4533]">
+                          Qty {item.qty} • Rs {Number(item.priceSnapshot)}
+                        </p>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
-              <div className="mt-1 flex justify-between border-t border-[#E6D8C9] pt-2 font-bold text-[#2A1D14]">
-                <span>Total</span>
-                <span>Rs {totals.total.toFixed(2)}</span>
-              </div>
-            </div>
+            )}
 
-            <div className="mt-3 rounded-xl border border-[#E6D8C9] bg-white p-3 text-xs text-[#6C5644]">
-              Applied coupon: <span className="font-semibold">{couponCode || 'None'}</span>
-            </div>
+            {!checkoutLoading ? (
+              <>
+                <div className="mt-4 rounded-2xl border border-[#E8DBCE] bg-white p-3 text-sm">
+                  <div className="flex justify-between py-1 text-[#5A4533]">
+                    <span>Subtotal</span>
+                    <span>Rs {totals.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 text-[#5A4533]">
+                    <span>Discount</span>
+                    <span>- Rs {totals.discount.toFixed(2)}</span>
+                  </div>
+                  <div className="mt-1 flex justify-between border-t border-[#E6D8C9] pt-2 font-bold text-[#2A1D14]">
+                    <span>Total</span>
+                    <span>Rs {totals.total.toFixed(2)}</span>
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              onClick={handlePlaceOrder}
-              disabled={submitting || !items.length}
-              className="mt-4 w-full rounded-xl bg-[#5B821F] px-4 py-3 text-sm font-bold text-white shadow-[0_12px_26px_rgba(91,130,31,0.33)] disabled:bg-[#D4B79D]"
-            >
-              {submitting ? 'Placing Order...' : 'Place Pickup Order'}
-            </button>
+                <div className="mt-3 rounded-xl border border-[#E6D8C9] bg-white p-3 text-xs text-[#6C5644]">
+                  Applied coupon: <span className="font-semibold">{couponCode || 'None'}</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handlePlaceOrder}
+                  disabled={submitting || !items.length}
+                  className="mt-4 w-full rounded-xl bg-[#5B821F] px-4 py-3 text-sm font-bold text-white shadow-[0_12px_26px_rgba(91,130,31,0.33)] disabled:bg-[#D4B79D]"
+                >
+                  {submitting ? 'Placing Order...' : 'Place Pickup Order'}
+                </button>
+              </>
+            ) : null}
 
             {message ? <p className="mt-3 text-sm text-[#6A5440]">{message}</p> : null}
             {orderResult ? (
               <div className="mt-3 rounded-xl border border-[#D8CCBF] bg-[#FFF6EB] p-3 text-sm text-[#5B4635]">
-                Order created: <span className="font-semibold">{orderResult.orderId}</span>
-                <br />
                 Order no: <span className="font-semibold">{orderResult.orderNo}</span>
-                <br />
-                Payment ref: <span className="font-semibold">{orderResult.providerOrderId || 'pending'}</span>
               </div>
             ) : null}
             {orderResult ? (

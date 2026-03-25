@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { COLORS } from '@/lib/constants';
 import { CartSidebar } from '@/components/cart/CartSidebar';
+import { getLocalCartCount } from '@/lib/localCart';
 
 interface HeaderProps {
   scrolled?: boolean;
@@ -44,31 +45,9 @@ export function Header({ scrolled = false }: HeaderProps) {
   useEffect(() => {
     let mounted = true;
 
-    const loadCartCount = async () => {
-      try {
-        const cartId = localStorage.getItem('hb_single_cart_id');
-        if (!cartId) {
-          if (mounted) setCartCount(0);
-          return;
-        }
-        const response = await fetch(`/api/cart/${cartId}`, {
-          credentials: 'include',
-          cache: 'no-store',
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!mounted) return;
-        if (!response.ok || !data?.success) {
-          setCartCount(0);
-          return;
-        }
-        const totalQty = (data.data?.items ?? []).reduce(
-          (sum: number, item: { qty: number }) => sum + Number(item.qty || 0),
-          0
-        );
-        setCartCount(totalQty);
-      } catch {
-        if (mounted) setCartCount(0);
-      }
+    const loadCartCount = () => {
+      if (!mounted) return;
+      setCartCount(getLocalCartCount());
     };
 
     const onCartUpdated = () => {
@@ -113,16 +92,18 @@ export function Header({ scrolled = false }: HeaderProps) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-2"
           >
-            <Image
-              src="/chutney-club-logo.png"
-              alt="Chutney Club"
-              width={144}
-              height={64}
-              className="h-14 w-auto rounded-md"
-              priority
-            />
+            <Link href="/" aria-label="Go to home page" className="inline-flex cursor-pointer">
+              <Image
+                src="/chutney-club-logo.png"
+                alt="Chutney Club"
+                width={144}
+                height={64}
+                className="h-14 w-auto cursor-pointer rounded-md"
+                priority
+              />
+            </Link>
           </motion.div>
 
           {/* Navigation */}

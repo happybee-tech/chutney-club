@@ -201,3 +201,79 @@ export async function getCartById(input: { userId: string; cartId: string }) {
 
   return cart;
 }
+
+export async function syncSingleCartFromClient(input: {
+  userId: string;
+  items: Array<{ variantId: string; qty: number }>;
+}) {
+  return prisma.$transaction(async (tx) => {
+    let cart = await tx.cart.findFirst({
+      where: { userId: input.userId, orderType: 'single', status: 'active' },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!cart) {
+      cart = await tx.cart.create({
+        data: {
+          userId: input.userId,
+          orderType: 'single',
+          status: 'active',
+        },
+      });
+    }
+
+    await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+
+    let droppedCount = 0;
+
+    if (input.items.length > 0) {
+      const variantIds = Array.from(new Set(input.items.map((item) => item.variantId)));
+      const variants = await tx.productVariant.findMany({
+        where: {
+          id: { in: variantIds },
+          isActive: true,
+          product: { isActive: true },
+        },
+      });
+      const variantPriceById = new Map(variants.map((variant) => [variant.id, variant.price]));
+      const validItems = input.items.filter((item) => variantPriceById.has(item.variantId));
+      droppedCount = input.items.length - validItems.length;
+
+      if (validItems.length > 0) {
+        await tx.cartItem.createMany({
+          data: validItems.map((item) => ({
+            cartId: cart.id,
+            variantId: item.variantId,
+            qty: item.qty,
+            priceSnapshot: variantPriceById.get(item.variantId)!,
+          })),
+        });
+      }
+    }
+
+    const cartWithItems = await tx.cart.findFirst({
+      where: { id: cart.id },
+      include: {
+        items: {
+          include: {
+            variant: {
+              include: {
+                product: {
+                  include: {
+                    images: {
+                      orderBy: { sortOrder: 'asc' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        brand: true,
+      },
+    });
+
+    if (!cartWithItems) throw new Error('CART_NOT_FOUND');
+    return { cart: cartWithItems, droppedCount };
+  });
+}
